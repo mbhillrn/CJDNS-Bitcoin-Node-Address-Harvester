@@ -3,252 +3,258 @@ As of: 2026-01-13
 KNOWN: CJDNS fc** fc00 addresses with bitcoin nodes
 == CONFIRMED BITCOIN NODES (confirmed.host) ==
 (Most recently confirmed first)
+  fc55:6715:db3d:3f44:ec62:ea3d:ada9:cccb
   fc17:4369:5414:4b1f:5689:d3ed:4039:335c
   fc1f:22c3:95dc:a3af:4a93:8251:beb9:1858
+  fcc7:be49:ccd1:dc91:3125:f0da:457d:8ce
   fc11:f769:16e6:3611:58ae:1d4a:fcf7:57a4
   fc5c:b3fc:84b4:1c7f:a5d8:4a91:dea5:3e19
   fcc7:be49:ccd1:dc91:3125:f0da:457d:08ce
+  fc06:698b:5a35:ff8b:4855:4a97:9cd5:d12d
   fcd4:d2e1:d932:5cff:60e6:e674:af1c:56b3
   fc34:e655:39da:169f:adcd:b1e8:534:3920
-  fc95:6edb:af65:9ea3:cd27:21ef:f5e2:29c6
-  fca0:0151:79ac:8992:b51e:bdc4:6ed9:41be
-  fcf1:22ff:3070:582f:a873:61bc:4bc1:81bf
-  fc55:6715:db3d:3f44:ec62:ea3d:ada9:cccb
-  fcc7:be49:ccd1:dc91:3125:f0da:457d:8ce
-  fc06:698b:5a35:ff8b:4855:4a97:9cd5:d12d
   fc77:89c1:cb33:b770:f92c:1eff:a60a:b1cb
+  fc95:6edb:af65:9ea3:cd27:21ef:f5e2:29c6
+  fcf1:22ff:3070:582f:a873:61bc:4bc1:81bf
+  fc89:1969:a936:9d23:6f91:7ea5:a681:cfae
   fcf9:45bc:8c48:6973:7b3f:5538:6e51:8fc9
+  fc57:be98:b90c:89a2:6807:69a0:827:947e
+  fc73:b851:bc16:edca:e744:87f9:e1f:d823
+  fcea:a774:9218:465a:ad48:a4ae:54b:6d3a
+  fca0:151:79ac:8992:b51e:bdc4:6ed9:41be
+  fca0:0151:79ac:8992:b51e:bdc4:6ed9:41be
   fc17:275f:8171:73c:b567:4595:e12c:7684
   fc71:12bd:f5e7:71b1:5b4e:04e3:6228:0ac0
   fc73:b851:bc16:edca:e744:87f9:0e1f:d823
-  fc89:1969:a936:9d23:6f91:7ea5:a681:cfae
   fc34:e655:39da:169f:adcd:b1e8:0534:3920
   fcea:a774:9218:465a:ad48:a4ae:054b:6d3a
-  fc73:b851:bc16:edca:e744:87f9:e1f:d823
   fc6d:f562:86a0:791d:8a20:7aa2:8879:2176
   fc70:704d:b268:cdbf:d622:ea9f:db12:859e
   fcd1:c209:bc03:1a75:80d8:2838:a1f1:48c4
-  fc57:be98:b90c:89a2:6807:69a0:827:947e
   fc32:17ea:e415:c3bf:9808:149d:b5a2:c9aa
 
 == ALL DISCOVERED CJDNS ADDRESSES (master.host) ==
 (Most recently seen first)
   fcc7:be49:ccd1:dc91:3125:f0da:457d:08ce
+  fcba:3e31:30ac:ac18:f366:d645:b903:5c8b
+  fc9e:945d:9e64:a710:f40b:1686:a351:3e3e
+  fc55:6715:db3d:3f44:ec62:ea3d:ada9:cccb
   fc17:4369:5414:4b1f:5689:d3ed:4039:335c
   fc1f:22c3:95dc:a3af:4a93:8251:beb9:1858
+  fcc7:be49:ccd1:dc91:3125:f0da:457d:8ce
   fc11:f769:16e6:3611:58ae:1d4a:fcf7:57a4
   fc5c:b3fc:84b4:1c7f:a5d8:4a91:dea5:3e19
-  fc06:698b:5a35:ff8b:4855:4a97:9cd5:d12d
-  fcd4:d2e1:d932:5cff:60e6:e674:af1c:56b3
-  fc95:6edb:af65:9ea3:cd27:21ef:f5e2:29c6
-  fc34:e655:39da:169f:adcd:b1e8:534:3920
-  fca0:0151:79ac:8992:b51e:bdc4:6ed9:41be
-  fcf1:22ff:3070:582f:a873:61bc:4bc1:81bf
-  fc55:6715:db3d:3f44:ec62:ea3d:ada9:cccb
-  fcc7:be49:ccd1:dc91:3125:f0da:457d:8ce
   fcad:6aab:ff0b:038e:fe83:d0e2:92ab:7be5
-  fcc7:63e5:a219:7930:ff7b:68e1:457f:8ae6
-  fc7b:7d10:5ffe:eeaa:ff08:c914:5733:cd6e
-  fce3:0f2a:db44:b724:f67e:a694:774b:2a8b
-  fcf4:b6f3:6605:71b7:fd85:dac0:1e24:7456
-  fc48:56da:1bb7:118e:f96b:3e9b:9a2a:8e0f
-  fc77:89c1:cb33:b770:f92c:1eff:a60a:b1cb
-  fc1a:1dbd:3ee2:ab6c:febc:370c:efa0:710d
-  fcba:3e31:30ac:ac18:f366:d645:b903:5c8b
-  fc7f:4246:acbc:3cde:f1ed:5b63:2a03:ead1
-  fcf8:f982:c21f:5f3e:f1ec:f5ff:1187:dc77
-  fc02:240e:7c25:4c89:f63d:37ec:19f3:0d2e
   fcd4:2706:7ea0:ea35:f626:ba59:78a6:ec5d
   fcc6:f8e8:9097:5711:f2da:edf2:4394:597c
   fce1:022b:a5ce:4693:f48f:259e:2448:3d82
+  fc7b:7d10:5ffe:eeaa:ff08:c914:5733:cd6e
+  fce3:0f2a:db44:b724:f67e:a694:774b:2a8b
+  fc06:698b:5a35:ff8b:4855:4a97:9cd5:d12d
   fc8b:3c6f:a107:c871:f4ea:acfb:77ae:9ebd
-  fc7c:d7f4:7484:4438:ea7b:9ac5:6f85:4bd3
+  fcd4:d2e1:d932:5cff:60e6:e674:af1c:56b3
+  fc95:6edb:af65:9ea3:cd27:21ef:f5e2:29c6
+  fc34:e655:39da:169f:adcd:b1e8:534:3920
+  fc77:89c1:cb33:b770:f92c:1eff:a60a:b1cb
+  fc1a:1dbd:3ee2:ab6c:febc:370c:efa0:710d
+  fcf1:22ff:3070:582f:a873:61bc:4bc1:81bf
+  fcee:4edf:96bd:2c6b:e218:5ca9:597c:7cf5
   fcee:88da:e184:c8e8:e93f:56bc:63eb:d0e9
+  fc65:54b7:52a5:76b4:e8bf:f191:4206:f40a
   fcb7:3010:5a8d:1f98:f162:4c98:5abd:38d5
   fce1:2a4e:2214:22c1:f0fe:59af:e6b8:b8ab
-  fcaf:7bf7:1696:d97e:eb6f:6e89:14db:1478
-  fc3c:09ba:dc10:f977:f1e8:973c:4958:dae7
-  fcbb:7659:704b:833f:eabc:b8b0:e739:11c6
-  fc6e:26a4:5cfd:bbdc:e878:611c:fe21:af50
-  fcee:4edf:96bd:2c6b:e218:5ca9:597c:7cf5
-  fc65:54b7:52a5:76b4:e8bf:f191:4206:f40a
-  fce8:df5e:7a5e:728e:d8ec:e9f7:b97c:9434
+  fc7b:e981:e5b8:6236:f082:b429:e11c:4c1a
+  fc7f:4246:acbc:3cde:f1ed:5b63:2a03:ead1
+  fcf8:f982:c21f:5f3e:f1ec:f5ff:1187:dc77
   fc7b:76c1:49ad:68f7:e1a7:dac3:1d0d:65e8
   fc17:dcc1:bbaa:1c78:e217:3ab8:2ef2:b367
   fc5f:feee:bda1:778c:e320:65d2:01e1:7364
-  fc0c:6b5c:0e66:a460:d6f8:decc:aa70:1f3e
+  fc3b:f61a:b34a:927a:e84e:d77b:d569:9d5a
   fc2a:ca1b:89a0:8c06:e050:eeb9:c845:31c1
+  fcbb:7659:704b:833f:eabc:b8b0:e739:11c6
   fc8d:56ed:a8f3:237e:e586:2447:9966:9be1
-  fc73:b851:bc16:edca:e744:87f9:0e1f:d823
   fca3:21d3:fc86:df63:e2ff:5995:1916:feca
+  fc61:de51:7877:2c43:cb1a:b4af:dcba:0006
   fc24:766d:476d:f0ec:d13f:4af0:3394:2b3f
   fc7c:c8e2:e0e5:a2a5:d0f4:4f49:c478:e5be
+  fc4d:80d9:fc4a:2688:bbc7:ce80:405e:21b6
   fc80:7c42:182c:4fdc:d57c:6bca:ba4d:8604
   fc7d:6c50:0f04:01b1:d059:64d8:bf06:1447
+  fc77:9146:24d5:ae7b:da33:4680:58a2:fcf9
   fcd8:5247:5065:8b9c:cbf5:8f53:b12c:de6f
-  fc1f:b337:ba51:4530:d6b8:6d28:b316:a90e
-  fc7e:acab:c2a1:9d41:cb70:65dc:4e70:3752
-  fcdc:8bfc:5326:d5d5:ce4f:0e11:8529:7a2c
-  fc61:de51:7877:2c43:cb1a:b4af:dcba:0006
-  fcee:0cc9:49d9:788f:c932:28f1:77e8:1f6a
-  fc30:26a2:980c:ee5a:c4c7:504e:b57f:b4f6
+  fce8:df5e:7a5e:728e:d8ec:e9f7:b97c:9434
+  fcc4:eff8:111b:2de9:dba9:94e7:67b9:daa0
+  fce7:1085:d76d:2b68:be01:4627:107e:90e4
   fc99:774f:5a85:36b3:c863:c330:f0e0:beae
+  fc7e:acab:c2a1:9d41:cb70:65dc:4e70:3752
   fc1e:06e6:faf4:2683:bf3e:58fb:d867:b015
-  fc24:74f9:1c8f:684b:c5ff:2828:38f2:6c35
-  fcb9:e506:9eaa:8683:bfec:f978:a008:5c8d
-  fca7:99cf:5a1a:3b72:c96d:5d28:0217:8e43
+  fc0c:1748:7b6f:d793:e01c:f8a5:cdd7:98d1
+  fc43:253d:3718:6515:dc03:a056:e45c:6b38
+  fcdc:8bfc:5326:d5d5:ce4f:0e11:8529:7a2c
+  fc7f:a1a9:a45d:34d1:dd5d:c895:4e88:392e
   fc8a:8687:bd9f:ff01:ab7a:658d:8d12:cc88
-  fc4d:80d9:fc4a:2688:bbc7:ce80:405e:21b6
+  fc12:f582:1cbc:9ca1:a004:96b7:e926:a9d0
+  fcd0:7a7f:3d4a:2a76:a99b:7937:206e:571a
+  fc06:6820:ad2c:e124:a8f4:84d7:340a:f9e1
+  fc73:474c:7d0d:89be:a3ff:eb4d:1854:63b7
+  fc68:8abc:50c6:2c60:a4c5:819a:5ba9:5ddd
+  fc30:26a2:980c:ee5a:c4c7:504e:b57f:b4f6
+  fc1e:f165:e271:d2ad:a31a:78c9:6a54:8336
   fc1c:9f0c:dad6:d5d9:af5e:2b71:220d:d0ea
   fcd4:5ceb:3316:2fac:af8a:ae97:e590:74c2
   fcb9:a690:cb2f:b152:af0a:5cc7:6d30:5d7b
   fc1f:6b04:b15d:85e0:ac48:140b:f4ca:9928
-  fcea:a774:9218:465a:ad48:a4ae:054b:6d3a
+  fc51:785b:2bd7:5927:b576:a231:ca1e:515f
+  fcdd:4f38:dd2e:c4b5:b62e:d47a:8166:ddf6
+  fca1:4de7:f73f:6e5c:b8e4:2b1a:ef2d:0d4d
   fc34:e655:39da:169f:adcd:b1e8:0534:3920
-  fc12:f582:1cbc:9ca1:a004:96b7:e926:a9d0
-  fcaa:f500:c952:f861:a7b1:96b3:5665:99ae
-  fcd0:7a7f:3d4a:2a76:a99b:7937:206e:571a
-  fc06:6820:ad2c:e124:a8f4:84d7:340a:f9e1
-  fc73:474c:7d0d:89be:a3ff:eb4d:1854:63b7
-  fc78:6e1f:1f8c:b70a:a794:c122:078b:e5c3
-  fc68:8abc:50c6:2c60:a4c5:819a:5ba9:5ddd
-  fca9:3894:59a5:5a71:9f07:8ece:b201:6dd4
-  fc08:b218:e9e5:0a88:a7c0:003c:33cb:46d5
-  fc1e:f165:e271:d2ad:a31a:78c9:6a54:8336
-  fc4e:e26d:b19c:43ca:a36d:e2d1:de93:f785
+  fc11:9994:d588:8d24:819b:35fb:3743:3611
+  fc3d:86bc:b706:b99b:7746:6f28:d94c:46d0
   fc70:be98:c0ec:8569:9c9b:3ab4:d470:4bf2
   fca4:a220:4333:bc32:93d7:7e84:43be:9468
   fc58:8465:1d9a:bd02:92cc:41a3:8026:5277
   fc98:7148:0f9d:249a:9c91:989b:bf5c:ced8
   fc19:3b0d:e2c1:cfa7:9b3c:b635:1c61:b7ce
-  fc81:9d39:d9bb:2cf7:968b:5cde:4fbc:fc17
-  fc9a:3dbc:fead:a423:948c:dc77:9078:2936
-  fc13:94b8:cb1c:78e4:8e53:7ca8:e4af:bab2
-  fcd3:c163:5a3d:443b:8b0b:bc08:ea79:bee0
   fc4a:7b20:7a67:e34d:8742:5fa7:e970:cb72
   fc9b:da33:35e7:3c2b:8576:2063:2bd3:52da
   fc32:2893:eee7:ba95:8cb3:e903:f240:a9b8
   fc1a:e0b5:5cc5:1935:8968:0e33:dfce:8d96
   fcd2:5eca:2f59:01b1:8bc2:4a39:5804:daa0
-  fc9e:b01a:59ea:fa0a:895f:30e8:2920:6ef7
+  fca9:3894:59a5:5a71:9f07:8ece:b201:6dd4
+  fc4f:ef08:dc89:0485:7dd7:f2e6:ccec:ddad
+  fc9e:9d11:23f7:f70b:7812:d65c:78ca:9d6d
+  fc9a:3dbc:fead:a423:948c:dc77:9078:2936
+  fc13:94b8:cb1c:78e4:8e53:7ca8:e4af:bab2
   fc69:b7a1:52a8:6009:8c98:f1cc:be11:ae07
+  fc12:45b0:5b6c:7811:596e:e0b3:53bd:25cb
   fc89:1969:a936:9d23:6f91:7ea5:a681:cfae
-  fc11:9994:d588:8d24:819b:35fb:3743:3611
-  fcf9:45bc:8c48:6973:7b3f:5538:6e51:8fc9
-  fc3d:86bc:b706:b99b:7746:6f28:d94c:46d0
-  fcba:75be:9f16:575d:80d1:67c2:2c78:f53c
-  fcc2:325c:2fa9:1843:84b5:207c:a50c:e18d
-  fc41:15cf:d7f3:cc54:83ae:766d:1eea:3d80
-  fca9:20f9:b8b2:d7b5:752f:ae0f:0192:7acd
-  fca0:90c9:c2a0:f553:7862:4e08:d62d:ea81
-  fcd0:8ac0:91f2:2846:7b40:7eff:5e84:3839
-  fcc3:c6b9:8e88:e311:7871:637c:3d21:75d9
-  fcf0:4c66:046d:fa8c:725f:70c1:2117:05f6
   fc62:0ed2:5346:818d:6bac:d94c:0d3b:13aa
   fc57:be98:b90c:89a2:6807:69a0:0827:947e
   fc7e:8070:6497:04b9:5b5b:e482:a692:7e4b
-  fc68:cd50:99ac:5ae2:694c:58ab:a379:3b2e
-  fc55:2ae8:56b4:3546:6dc0:c091:df62:ffe3
-  fc05:88f3:f0be:b0f3:6de9:df73:c855:73cb
-  fc04:2d99:c2d2:942a:655a:1bb5:d8c1:2ba6
-  fc12:45b0:5b6c:7811:596e:e0b3:53bd:25cb
-  fcb9:f004:d697:b537:5737:0898:b576:1f52
-  fcc8:23d7:af97:5a09:54f6:3920:b775:e39f
+  fcf9:45bc:8c48:6973:7b3f:5538:6e51:8fc9
+  fc7d:9c66:33bc:f242:76f8:b62f:9c3e:824a
   fcef:5959:a46e:a405:58bd:c709:758d:185f
-  fc12:9914:860e:95e1:588c:5369:2222:abc7
-  fcde:5b9e:fe85:5af7:5368:6dff:729d:f859
-  fcfa:8e45:65dc:54c7:53e9:d1c5:cc0f:7d10
+  fc68:cd50:99ac:5ae2:694c:58ab:a379:3b2e
+  fc22:8d05:42cb:9005:5ef1:573c:e61b:8004
+  fc55:2ae8:56b4:3546:6dc0:c091:df62:ffe3
+  fca9:20f9:b8b2:d7b5:752f:ae0f:0192:7acd
+  fc05:88f3:f0be:b0f3:6de9:df73:c855:73cb
+  fcd0:8ac0:91f2:2846:7b40:7eff:5e84:3839
+  fc09:92e0:e5f0:17d6:6569:8c65:d48a:8edf
+  fc6a:a3ef:dc26:8e2d:73f6:cfa8:af8d:2501
+  fc04:2d99:c2d2:942a:655a:1bb5:d8c1:2ba6
+  fcd7:4791:0448:9b5e:4b32:08a3:6a53:1e03
   fcde:7b9c:1fb1:8152:47f4:c92e:9de8:9efb
   fc4b:0e61:dcca:b077:52e0:2b03:b2d6:164e
-  fc09:c99b:8ebf:bd7b:4b32:8c0b:0f43:8ede
-  fc93:1145:f24c:ee59:4a09:288e:ada8:0901
+  fc46:2cbe:e206:1c9d:4fc8:0381:6ed7:f900
+  fc12:9914:860e:95e1:588c:5369:2222:abc7
   fc89:850a:f7c2:dc64:45a0:d445:5f6b:cb5e
-  fccf:1b00:1d7c:24d7:3e9a:1bde:fec9:ac9f
-  fc98:19cd:a9ab:dfbc:38a4:6d74:bf83:19f7
+  fc53:721c:4b18:af40:4ea2:1208:73a8:8354
+  fc5c:7c3a:75ee:1d44:4ec7:bee5:efeb:36d3
   fc84:7c98:300d:c612:4fbb:9166:4102:08ee
-  fc13:9ebb:1ad8:1055:4ce9:bb7c:cdf1:ad82
+  fcd1:b45d:127f:ea9b:4e00:7785:8c87:c837
   fce8:6b7d:542a:5d5c:4e56:2034:c05d:b255
+  fc5d:cbf5:23be:f9e8:4ee1:ca7b:6634:906b
   fc05:eca9:0d81:29fa:4cd6:4d84:0c1c:6549
+  fcfa:8e45:65dc:54c7:53e9:d1c5:cc0f:7d10
+  fc6b:7ae4:f0ee:6d95:3977:2eed:440b:3942
+  fc4b:7a73:6c7a:f8a9:2bf0:9e0e:de29:d8f5
   fcea:54c4:f512:0dd5:377a:0658:b2be:6aac
   fc5a:c5a5:9505:3b68:364e:6a52:3ff3:d12d
   fc12:2fde:cf28:733e:344e:9049:7e08:b251
-  fc0a:1388:a8b9:f13b:3718:5b48:f7ea:e965
+  fcd6:8db0:ffc9:129a:2d59:df29:cdce:d0d6
+  fcd9:c3c6:32a9:0d90:2a95:3d79:c204:45c4
+  fccf:1b00:1d7c:24d7:3e9a:1bde:fec9:ac9f
+  fc98:19cd:a9ab:dfbc:38a4:6d74:bf83:19f7
+  fc82:012a:3529:63f1:3be8:7f23:66e4:3608
+  fc55:2d84:9f49:127b:3cb7:1814:85ba:94d7
   fc38:5aca:25f5:2af0:333b:b016:c122:e4aa
+  fc57:70ef:a250:0be9:2066:9e28:1ced:7250
   fccf:f4cc:c411:cc6c:33b2:13f4:b9b5:5b38
+  fc32:6901:d9ec:50ef:438c:e96a:4c82:aed8
+  fc2d:8eb0:7222:c42e:2799:4bab:a94a:4764
+  fc68:9c6c:ef78:068f:2c96:070d:698f:8494
   fc52:2ec3:0e80:c708:2d25:5091:1fce:f20a
   fc54:a391:6148:c537:314a:a770:cc55:9933
-  fc4b:7a73:6c7a:f8a9:2bf0:9e0e:de29:d8f5
-  fcd9:c3c6:32a9:0d90:2a95:3d79:c204:45c4
+  fc85:3773:f44e:8234:300b:41be:2195:ed69
   fc54:7e9c:6f7f:1bbf:09dc:64a9:576a:4ba7
   fc8d:e6fa:d648:2588:095c:ce85:adf5:8faf
   fcb6:ad85:3cbb:c469:01ca:5736:fc50:8f68
-  fcd9:5533:801a:0336:24eb:b612:6def:3504
-  fc39:f4bc:8800:f70b:04db:94a4:a929:7814
-  fc88:5329:26a3:0abb:1d2b:5b1e:e87b:7b39
-  fc7b:e981:e5b8:6236:f082:b429:e11c:4c1a
-  fc0c:1748:7b6f:d793:e01c:f8a5:cdd7:98d1
-  fc43:253d:3718:6515:dc03:a056:e45c:6b38
-  fc77:9146:24d5:ae7b:da33:4680:58a2:fcf9
-  fc56:1757:c584:8d37:d825:0399:6cd3:359c
-  fc99:c0c8:8c4a:a519:c042:3a62:e784:8021
-  fca1:4de7:f73f:6e5c:b8e4:2b1a:ef2d:0d4d
-  fce6:474e:f2e3:6520:8be4:6c87:c6c1:1ba3
-  fcdb:c4c4:0cef:05ea:6be5:9745:eaef:ebf0
-  fc09:92e0:e5f0:17d6:6569:8c65:d48a:8edf
-  fc3e:3935:0e35:3fe5:6814:fcdf:7ac9:0b38
-  fc7c:4662:aa99:e5a8:62c4:6a96:7c59:d906
-  fc96:a2a5:5a07:9eae:5f02:0a5c:e50e:c465
-  fcfd:459e:7f59:df5f:53f9:6382:b7de:0e0c
-  fc71:12bd:f5e7:71b1:5b4e:04e3:6228:0ac0
-  fc46:2cbe:e206:1c9d:4fc8:0381:6ed7:f900
-  fc53:721c:4b18:af40:4ea2:1208:73a8:8354
-  fc5c:7c3a:75ee:1d44:4ec7:bee5:efeb:36d3
-  fcd1:b45d:127f:ea9b:4e00:7785:8c87:c837
-  fcd7:4791:0448:9b5e:4b32:08a3:6a53:1e03
-  fc6b:7ae4:f0ee:6d95:3977:2eed:440b:3942
-  fc82:012a:3529:63f1:3be8:7f23:66e4:3608
-  fc2b:0124:7e2b:3d4d:4923:cd9b:b915:ccdf
-  fc51:98e0:9a6d:b218:256f:3837:5c9f:712c
-  fc24:3e5a:05ef:4fc1:2d32:c149:b1c4:8d89
-  fc85:3773:f44e:8234:300b:41be:2195:ed69
-  fc17:f68b:3ce1:d9e8:18fc:f426:c868:ed4f
-  fc64:eeda:4ff4:bc0b:0a7a:343b:b9f6:41ed
-  fc79:66a5:ce09:e944:1354:e087:13ab:f36f
-  fc42:50d7:4620:f2be:1822:1e57:bdff:c2b5
-  fc2a:1fa2:910a:7f69:1269:3b0b:e860:6c24
   fc0c:09ba:4071:808c:11cd:4ae8:373f:fbab
   fcb1:ec72:1289:79d1:09d0:3233:1290:00ae
   fc24:9d0a:7813:3e0e:1007:ca3e:ccb4:71f3
+  fc88:5329:26a3:0abb:1d2b:5b1e:e87b:7b39
+  fc05:c3f7:64ca:47b2:1f49:0055:16f4:694f
   fc9a:c136:d009:c3ef:09b7:4ae1:52d0:40d6
   fc94:3e2b:557f:d11e:0f63:999f:4f32:ae80
+  fc41:9983:a379:9ad5:1d33:89d5:9a06:f3ef
+  fc17:f68b:3ce1:d9e8:18fc:f426:c868:ed4f
+  fc7c:d7f4:7484:4438:ea7b:9ac5:6f85:4bd3
+  fcaf:7bf7:1696:d97e:eb6f:6e89:14db:1478
+  fc57:be98:b90c:89a2:6807:69a0:827:947e
+  fcc7:63e5:a219:7930:ff7b:68e1:457f:8ae6
+  fc73:b851:bc16:edca:e744:87f9:0e1f:d823
+  fc73:b851:bc16:edca:e744:87f9:e1f:d823
+  fcea:a774:9218:465a:ad48:a4ae:54b:6d3a
+  fca0:151:79ac:8992:b51e:bdc4:6ed9:41be
+  fc6e:26a4:5cfd:bbdc:e878:611c:fe21:af50
+  fc56:1757:c584:8d37:d825:0399:6cd3:359c
+  fc81:9d39:d9bb:2cf7:968b:5cde:4fbc:fc17
+  fcee:0cc9:49d9:788f:c932:28f1:77e8:1f6a
+  fce6:474e:f2e3:6520:8be4:6c87:c6c1:1ba3
+  fc99:c0c8:8c4a:a519:c042:3a62:e784:8021
+  fca0:90c9:c2a0:f553:7862:4e08:d62d:ea81
+  fcc3:c6b9:8e88:e311:7871:637c:3d21:75d9
+  fcdb:c4c4:0cef:05ea:6be5:9745:eaef:ebf0
+  fc3e:3935:0e35:3fe5:6814:fcdf:7ac9:0b38
+  fca7:99cf:5a1a:3b72:c96d:5d28:0217:8e43
+  fcb9:f004:d697:b537:5737:0898:b576:1f52
+  fcc8:23d7:af97:5a09:54f6:3920:b775:e39f
+  fc96:a2a5:5a07:9eae:5f02:0a5c:e50e:c465
+  fc09:c99b:8ebf:bd7b:4b32:8c0b:0f43:8ede
+  fc93:1145:f24c:ee59:4a09:288e:ada8:0901
+  fc13:9ebb:1ad8:1055:4ce9:bb7c:cdf1:ad82
+  fcde:5b9e:fe85:5af7:5368:6dff:729d:f859
+  fc51:98e0:9a6d:b218:256f:3837:5c9f:712c
+  fc64:eeda:4ff4:bc0b:0a7a:343b:b9f6:41ed
+  fc2b:0124:7e2b:3d4d:4923:cd9b:b915:ccdf
+  fc24:3e5a:05ef:4fc1:2d32:c149:b1c4:8d89
+  fc79:66a5:ce09:e944:1354:e087:13ab:f36f
+  fc42:50d7:4620:f2be:1822:1e57:bdff:c2b5
+  fc7c:4662:aa99:e5a8:62c4:6a96:7c59:d906
+  fc2a:1fa2:910a:7f69:1269:3b0b:e860:6c24
+  fcfd:459e:7f59:df5f:53f9:6382:b7de:0e0c
   fc35:41d6:0f9b:db21:0e95:9850:eb78:94b1
+  fc71:12bd:f5e7:71b1:5b4e:04e3:6228:0ac0
+  fc78:6e1f:1f8c:b70a:a794:c122:078b:e5c3
   fc45:dadc:178e:0f26:0225:a3ac:7b00:2f0b
   fce6:d388:d21e:53e9:0623:2e23:df7b:f671
-  fc9e:945d:9e64:a710:f40b:1686:a351:3e3e
-  fc3b:f61a:b34a:927a:e84e:d77b:d569:9d5a
-  fcc4:eff8:111b:2de9:dba9:94e7:67b9:daa0
-  fc7f:a1a9:a45d:34d1:dd5d:c895:4e88:392e
-  fce7:1085:d76d:2b68:be01:4627:107e:90e4
-  fc51:785b:2bd7:5927:b576:a231:ca1e:515f
-  fcdd:4f38:dd2e:c4b5:b62e:d47a:8166:ddf6
+  fc39:f4bc:8800:f70b:04db:94a4:a929:7814
+  fcb9:e506:9eaa:8683:bfec:f978:a008:5c8d
   fcc2:d8d6:2226:a77f:b03f:826c:a835:9e43
-  fc7d:9c66:33bc:f242:76f8:b62f:9c3e:824a
-  fc4f:ef08:dc89:0485:7dd7:f2e6:ccec:ddad
-  fc9e:9d11:23f7:f70b:7812:d65c:78ca:9d6d
-  fc6a:a3ef:dc26:8e2d:73f6:cfa8:af8d:2501
-  fc22:8d05:42cb:9005:5ef1:573c:e61b:8004
-  fc5d:cbf5:23be:f9e8:4ee1:ca7b:6634:906b
-  fc55:2d84:9f49:127b:3cb7:1814:85ba:94d7
-  fc32:6901:d9ec:50ef:438c:e96a:4c82:aed8
-  fcd6:8db0:ffc9:129a:2d59:df29:cdce:d0d6
-  fc57:70ef:a250:0be9:2066:9e28:1ced:7250
-  fc2d:8eb0:7222:c42e:2799:4bab:a94a:4764
-  fc68:9c6c:ef78:068f:2c96:070d:698f:8494
-  fc05:c3f7:64ca:47b2:1f49:0055:16f4:694f
-  fc41:9983:a379:9ad5:1d33:89d5:9a06:f3ef
+  fcf4:b6f3:6605:71b7:fd85:dac0:1e24:7456
+  fca0:0151:79ac:8992:b51e:bdc4:6ed9:41be
+  fc3c:09ba:dc10:f977:f1e8:973c:4958:dae7
+  fc02:240e:7c25:4c89:f63d:37ec:19f3:0d2e
+  fc48:56da:1bb7:118e:f96b:3e9b:9a2a:8e0f
+  fc1f:b337:ba51:4530:d6b8:6d28:b316:a90e
+  fc0c:6b5c:0e66:a460:d6f8:decc:aa70:1f3e
+  fc24:74f9:1c8f:684b:c5ff:2828:38f2:6c35
+  fcea:a774:9218:465a:ad48:a4ae:054b:6d3a
+  fcaa:f500:c952:f861:a7b1:96b3:5665:99ae
+  fc08:b218:e9e5:0a88:a7c0:003c:33cb:46d5
+  fc4e:e26d:b19c:43ca:a36d:e2d1:de93:f785
+  fcd3:c163:5a3d:443b:8b0b:bc08:ea79:bee0
+  fcc2:325c:2fa9:1843:84b5:207c:a50c:e18d
+  fc9e:b01a:59ea:fa0a:895f:30e8:2920:6ef7
+  fcba:75be:9f16:575d:80d1:67c2:2c78:f53c
+  fc41:15cf:d7f3:cc54:83ae:766d:1eea:3d80
+  fcf0:4c66:046d:fa8c:725f:70c1:2117:05f6
+  fc0a:1388:a8b9:f13b:3718:5b48:f7ea:e965
+  fcd9:5533:801a:0336:24eb:b612:6def:3504
   fcca:ef4c:9df7:db4f:86ba:da33:3f97:44bc
-  fcf4:e309:14b5:5498:cafd:4f59:4b9c:7f84
   fca6:4c32:ae77:bfa4:da19:f048:e1e8:f3fc
+  fcf4:e309:14b5:5498:cafd:4f59:4b9c:7f84
   fc21:7165:fd8f:fad6:2d7b:e198:fe4d:bbb6
   fc71:fa3a:414d:fe82:f465:369b:141a:0f8c
   fc6e:b61b:6f04:4c96:1b14:22d9:e6b5:087e
@@ -292,7 +298,6 @@ KNOWN: CJDNS fc** fc00 addresses with bitcoin nodes
   fc7f:b754:88e5:052f:f670:7314:a32b:01e9
   fcea:e09f:3f49:7911:fd63:9f4b:90fe:a363
   fcec:f419:460c:af9e:6965:2e4b:9566:bec5
-  fc73:b851:bc16:edca:e744:87f9:e1f:d823
   fc6b:4e4b:6685:9042:994a:a401:8a23:f7f9
   fccd:ae39:6428:64c3:a861:5d69:2f50:55b6
   fc65:8359:a24b:5deb:802f:d452:6f84:f18b
@@ -323,9 +328,4 @@ KNOWN: CJDNS fc** fc00 addresses with bitcoin nodes
   fc6d:f562:86a0:791d:8a20:7aa2:8879:2176
   fc70:704d:b268:cdbf:d622:ea9f:db12:859e
   fcd1:c209:bc03:1a75:80d8:2838:a1f1:48c4
-  fc57:be98:b90c:89a2:6807:69a0:827:947e
   fc32:17ea:e415:c3bf:9808:149d:b5a2:c9aa
-
-Counts:
-  confirmed=27
-  master=292
