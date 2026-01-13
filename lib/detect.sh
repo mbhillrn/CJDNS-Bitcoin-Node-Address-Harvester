@@ -45,52 +45,48 @@ cjdh_find_bitcoin_cli_bin() {
 
 cjdh_try_extract_bitcoind_args() {
   # Prints "DATADIR|CONF" if found, else empty.
-  # Strategy 1: running process args
-  local psline dd cf
-  psline="$(ps -eo args= | grep -E '(^|[[:space:]])(bitcoind|bitcoin-qt)([[:space:]]|$)' | head -n1 || true)"
-  if [[ -n "$psline" ]]; then
-    dd="$(sed -n 's/.* -datadir=\([^ ]\+\).*/\1/p' <<<"$psline" | head -n1)"
-    if [[ -z "$dd" ]]; then
-      dd="$(sed -n 's/.* -datadir[[:space:]]\([^ ]\+\).*/\1/p' <<<"$psline" | head -n1)"
-    fi
-    cf="$(sed -n 's/.* -conf=\([^ ]\+\).*/\1/p' <<<"$psline" | head -n1)"
-    if [[ -z "$cf" ]]; then
-      cf="$(sed -n 's/.* -conf[[:space:]]\([^ ]\+\).*/\1/p' <<<"$psline" | head -n1)"
-    fi
-    if [[ -n "$dd" || -n "$cf" ]]; then
-      printf '%s|%s\n' "${dd:-}" "${cf:-}"
-      return 0
+  local line dd cf exec argv
+
+  # 1) Running process args (best)
+  if command -v pgrep >/dev/null 2>&1; then
+    line="$(pgrep -a bitcoind 2>/dev/null | head -n1 || true)"
+    if [[ -n "$line" ]]; then
+      dd="$(sed -n 's/.* -datadir=\([^ ]\+\).*/\1/p' <<<"$line" | head -n1)"
+      [[ -z "$dd" ]] && dd="$(sed -n 's/.* -datadir[[:space:]]\([^ ]\+\).*/\1/p' <<<"$line" | head -n1)"
+      cf="$(sed -n 's/.* -conf=\([^ ]\+\).*/\1/p' <<<"$line" | head -n1)"
+      [[ -z "$cf" ]] && cf="$(sed -n 's/.* -conf[[:space:]]\([^ ]\+\).*/\1/p' <<<"$line" | head -n1)"
+      if [[ -n "$dd" || -n "$cf" ]]; then
+        printf '%s|%s\n' "${dd:-}" "${cf:-}"
+        return 0
+      fi
     fi
   fi
 
-  # Strategy 2: systemd unit (best effort)
+  # 2) systemd unit ExecStart (parse argv[] blob if present)
   if command -v systemctl >/dev/null 2>&1; then
-    local unit
-    for unit in bitcoind.service bitcoin.service bitcoin@.service bitcoin-qt.service; do
-      if systemctl cat "$unit" >/dev/null 2>&1; then
-        local exec
-        exec="$(systemctl cat "$unit" 2>/dev/null | sed -n 's/^ExecStart=//p' | head -n1)"
-        if [[ -n "$exec" ]]; then
-          dd="$(sed -n 's/.* -datadir=\([^ ]\+\).*/\1/p' <<<"$exec" | head -n1)"
-          if [[ -z "$dd" ]]; then
-            dd="$(sed -n 's/.* -datadir[[:space:]]\([^ ]\+\).*/\1/p' <<<"$exec" | head -n1)"
-          fi
-          cf="$(sed -n 's/.* -conf=\([^ ]\+\).*/\1/p' <<<"$exec" | head -n1)"
-          if [[ -z "$cf" ]]; then
-            cf="$(sed -n 's/.* -conf[[:space:]]\([^ ]\+\).*/\1/p' <<<"$exec" | head -n1)"
-          fi
-          if [[ -n "$dd" || -n "$cf" ]]; then
-            printf '%s|%s\n' "${dd:-}" "${cf:-}"
-            return 0
-          fi
-        fi
+    for unit in bitcoind.service bitcoin.service; do
+      exec="$(systemctl show -p ExecStart --value "$unit" 2>/dev/null || true)"
+      [[ -n "$exec" ]] || continue
+
+      argv="$(sed -n 's/.*argv\[\]=\([^;]*\).*/\1/p' <<<"$exec" | head -n1)"
+      [[ -z "$argv" ]] && argv="$exec"
+
+      dd="$(sed -n 's/.* -datadir=\([^ ]\+\).*/\1/p' <<<" $argv" | head -n1)"
+      [[ -z "$dd" ]] && dd="$(sed -n 's/.* -datadir[[:space:]]\([^ ]\+\).*/\1/p' <<<" $argv" | head -n1)"
+      cf="$(sed -n 's/.* -conf=\([^ ]\+\).*/\1/p' <<<" $argv" | head -n1)"
+      [[ -z "$cf" ]] && cf="$(sed -n 's/.* -conf[[:space:]]\([^ ]\+\).*/\1/p' <<<" $argv" | head -n1)"
+
+      if [[ -n "$dd" || -n "$cf" ]]; then
+        printf '%s|%s\n' "${dd:-}" "${cf:-}"
+        return 0
       fi
     done
   fi
 
-  printf '%s' ""
+  echo ""
   return 0
 }
+
 
 cjdh_parse_datadir_from_conf() {
   # Args: conf_path
