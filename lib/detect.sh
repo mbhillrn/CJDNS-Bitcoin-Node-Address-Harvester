@@ -47,10 +47,16 @@ cjdh_try_extract_bitcoind_args() {
   # Prints "DATADIR|CONF" if found, else empty.
   # Strategy 1: running process args
   local psline dd cf
-  psline="$(ps -eo args= | grep -E '(^|[[:space:]])bitcoind([[:space:]]|$)' | head -n1 || true)"
+  psline="$(ps -eo args= | grep -E '(^|[[:space:]])(bitcoind|bitcoin-qt)([[:space:]]|$)' | head -n1 || true)"
   if [[ -n "$psline" ]]; then
     dd="$(sed -n 's/.* -datadir=\([^ ]\+\).*/\1/p' <<<"$psline" | head -n1)"
+    if [[ -z "$dd" ]]; then
+      dd="$(sed -n 's/.* -datadir[[:space:]]\([^ ]\+\).*/\1/p' <<<"$psline" | head -n1)"
+    fi
     cf="$(sed -n 's/.* -conf=\([^ ]\+\).*/\1/p' <<<"$psline" | head -n1)"
+    if [[ -z "$cf" ]]; then
+      cf="$(sed -n 's/.* -conf[[:space:]]\([^ ]\+\).*/\1/p' <<<"$psline" | head -n1)"
+    fi
     if [[ -n "$dd" || -n "$cf" ]]; then
       printf '%s|%s\n' "${dd:-}" "${cf:-}"
       return 0
@@ -60,13 +66,19 @@ cjdh_try_extract_bitcoind_args() {
   # Strategy 2: systemd unit (best effort)
   if command -v systemctl >/dev/null 2>&1; then
     local unit
-    for unit in bitcoind.service bitcoin.service; do
+    for unit in bitcoind.service bitcoin.service bitcoin@.service bitcoin-qt.service; do
       if systemctl cat "$unit" >/dev/null 2>&1; then
         local exec
         exec="$(systemctl cat "$unit" 2>/dev/null | sed -n 's/^ExecStart=//p' | head -n1)"
         if [[ -n "$exec" ]]; then
           dd="$(sed -n 's/.* -datadir=\([^ ]\+\).*/\1/p' <<<"$exec" | head -n1)"
+          if [[ -z "$dd" ]]; then
+            dd="$(sed -n 's/.* -datadir[[:space:]]\([^ ]\+\).*/\1/p' <<<"$exec" | head -n1)"
+          fi
           cf="$(sed -n 's/.* -conf=\([^ ]\+\).*/\1/p' <<<"$exec" | head -n1)"
+          if [[ -z "$cf" ]]; then
+            cf="$(sed -n 's/.* -conf[[:space:]]\([^ ]\+\).*/\1/p' <<<"$exec" | head -n1)"
+          fi
           if [[ -n "$dd" || -n "$cf" ]]; then
             printf '%s|%s\n' "${dd:-}" "${cf:-}"
             return 0
@@ -77,6 +89,104 @@ cjdh_try_extract_bitcoind_args() {
   fi
 
   printf '%s' ""
+  return 0
+}
+
+cjdh_parse_datadir_from_conf() {
+  # Args: conf_path
+  # Prints datadir if present, else empty.
+  local conf="${1:-}"
+  [[ -n "$conf" && -f "$conf" ]] || { echo ""; return 0; }
+  local line
+  line="$(grep -E '^[[:space:]]*datadir[[:space:]]*=' "$conf" 2>/dev/null | tail -n1 || true)"
+  if [[ -z "$line" ]]; then
+    echo ""
+    return 0
+  fi
+  line="${line#*=}"
+  line="$(cjdh_trim "$line")"
+  line="${line%\"}"
+  line="${line#\"}"
+  echo "$line"
+  return 0
+}
+
+cjdh_guess_paths_from_conf() {
+  # Args: conf_path
+  # Prints "DATADIR|CONF" if conf exists, else empty.
+  local conf="${1:-}" dd
+  [[ -n "$conf" && -f "$conf" ]] || { echo ""; return 0; }
+  dd="$(cjdh_parse_datadir_from_conf "$conf")"
+  if [[ -z "$dd" ]]; then
+    dd="$(cd "$(dirname "$conf")" 2>/dev/null && pwd -P)"
+  fi
+  printf '%s|%s\n' "${dd:-}" "$conf"
+  return 0
+}
+
+cjdh_common_bitcoin_conf_candidates() {
+  printf '%s\n' \
+    "${HOME}/.bitcoin/bitcoin.conf" \
+    "/srv/bitcoin/bitcoin.conf" \
+    "/srv/bitcoind/bitcoin.conf" \
+    "/etc/bitcoin/bitcoin.conf" \
+    "/etc/bitcoind/bitcoin.conf" \
+    "/var/lib/bitcoin/bitcoin.conf" \
+    "/var/bitcoin/bitcoin.conf" \
+    "/opt/bitcoin/bitcoin.conf"
+}
+
+cjdh_quick_find_bitcoin_conf() {
+  # Quick search for bitcoin.conf in common roots.
+  local root cand
+  for root in /etc /srv /var /opt "${HOME}"; do
+    [[ -d "$root" ]] || continue
+    cand="$(find "$root" -maxdepth 4 -name bitcoin.conf -type f 2>/dev/null | head -n1 || true)"
+    if [[ -n "$cand" ]]; then
+      echo "$cand"
+      return 0
+    fi
+  done
+  echo ""
+  return 0
+}
+
+cjdh_detect_bitcoin_paths() {
+  # Prints "DATADIR|CONF" if detected, else empty.
+  local guess dd cf cand
+
+  guess="$(cjdh_try_extract_bitcoind_args)"
+  dd="${guess%%|*}"
+  cf="${guess#*|}"
+  if [[ "$dd" != "$guess" || "$cf" != "$guess" ]]; then
+    if [[ -n "$cf" && -f "$cf" && -z "$dd" ]]; then
+      guess="$(cjdh_guess_paths_from_conf "$cf")"
+      echo "$guess"
+      return 0
+    fi
+    if [[ -n "$dd" && -d "$dd" && -z "$cf" ]]; then
+      cf="$dd/bitcoin.conf"
+      [[ -f "$cf" ]] || cf=""
+    fi
+    if [[ -n "$dd" || -n "$cf" ]]; then
+      printf '%s|%s\n' "${dd:-}" "${cf:-}"
+      return 0
+    fi
+  fi
+
+  while IFS= read -r cand; do
+    [[ -n "$cand" && -f "$cand" ]] || continue
+    cjdh_guess_paths_from_conf "$cand"
+    return 0
+  done < <(cjdh_common_bitcoin_conf_candidates)
+
+  cand="$(cjdh_quick_find_bitcoin_conf)"
+  if [[ -n "$cand" ]]; then
+    cjdh_guess_paths_from_conf "$cand"
+    return 0
+  fi
+
+  echo ""
   return 0
 }
 
@@ -116,7 +226,7 @@ cjdh_build_bitcoin_cli() {
     # fall through to detect if saved values don't verify
   fi
 
-  guess="$(cjdh_try_extract_bitcoind_args)"
+  guess="$(cjdh_detect_bitcoin_paths)"
   dd="${guess%%|*}"
   cf="${guess#*|}"
   [[ "$dd" == "$guess" ]] && dd="" && cf=""
