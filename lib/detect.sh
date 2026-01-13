@@ -197,14 +197,33 @@ cjdh_default_bitcoin_datadir() {
 
 cjdh_verify_bitcoin_cli() {
   # Args: cli_bin datadir conf
+  # Returns 0 if getnetworkinfo works with the provided args.
+  # Important: many installs work with -conf only (no -datadir needed/desired).
   local bin="${1:?bin}" dd="${2:-}" cf="${3:-}"
   local cmd=("$bin")
-  [[ -n "$dd" ]] && cmd+=("-datadir=$dd")
-  [[ -n "$cf" ]] && cmd+=("-conf=$cf")
 
-  # verify with a harmless call
-  "${cmd[@]}" getnetworkinfo >/dev/null 2>&1
+  if [[ -n "$cf" ]]; then
+    cmd+=("-conf=$cf")
+  fi
+  if [[ -n "$dd" ]]; then
+    cmd+=("-datadir=$dd")
+  fi
+
+  # First try with whatever we have
+  if "${cmd[@]}" getnetworkinfo >/dev/null 2>&1; then
+    return 0
+  fi
+
+  # If datadir+conf failed but conf exists, retry with conf only.
+  if [[ -n "$cf" ]]; then
+    cmd=("$bin" "-conf=$cf")
+    "${cmd[@]}" getnetworkinfo >/dev/null 2>&1
+    return $?
+  fi
+
+  return 1
 }
+
 
 cjdh_build_bitcoin_cli() {
   # Output: a complete CLI string, e.g. "/usr/bin/bitcoin-cli -datadir=... -conf=..."
@@ -220,7 +239,13 @@ cjdh_build_bitcoin_cli() {
 
   if [[ -n "$dd" || -n "$cf" ]]; then
     if cjdh_verify_bitcoin_cli "$bin" "$dd" "$cf"; then
-      printf '%s -datadir=%s -conf=%s\n' "$bin" "$dd" "$cf"
+      {
+      local out="$bin"
+      [[ -n "$dd" ]] && out="$out -datadir=$dd"
+      [[ -n "$cf" ]] && out="$out -conf=$cf"
+      printf '%s
+' "$out"
+    }
       return 0
     fi
     # fall through to detect if saved values don't verify
@@ -230,10 +255,12 @@ cjdh_build_bitcoin_cli() {
   dd="${guess%%|*}"
   cf="${guess#*|}"
   [[ "$dd" == "$guess" ]] && dd="" && cf=""
-
   # Fill missing pieces with sane defaults
-  [[ -z "$dd" ]] && dd="$(cjdh_default_bitcoin_datadir)"
-  [[ -z "$cf" ]] && cf="$dd/bitcoin.conf"
+  # If we already discovered a conf, do NOT guess datadir (conf-only installs are common).
+  if [[ -z "$cf" ]]; then
+    [[ -z "$dd" ]] && dd="$(cjdh_default_bitcoin_datadir)"
+    cf="$dd/bitcoin.conf"
+  fi
 
   # Verify guess
   if ! cjdh_verify_bitcoin_cli "$bin" "$dd" "$cf"; then
@@ -274,7 +301,13 @@ cjdh_build_bitcoin_cli() {
   BITCOIN_DATADIR="$dd"
   BITCOIN_CONF="$cf"
 
-  printf '%s -datadir=%s -conf=%s\n' "$bin" "$dd" "$cf"
+  {
+      local out="$bin"
+      [[ -n "$dd" ]] && out="$out -datadir=$dd"
+      [[ -n "$cf" ]] && out="$out -conf=$cf"
+      printf '%s
+' "$out"
+    }
 }
 
 # ---- cjdns admin detection ----
