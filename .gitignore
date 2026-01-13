@@ -1,0 +1,12 @@
+# machine-specific / generated config
+harvest.local.conf
+harvest.conf
+
+# runtime / generated data
+tmp/
+bak/
+
+# editor / OS junk
+.DS_Store
+*.swp
+*~
