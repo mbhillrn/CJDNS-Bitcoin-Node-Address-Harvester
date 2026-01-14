@@ -377,8 +377,10 @@ smart_update_results_from_batch() {
     # success if host is in new_hosts
     if printf '%s\n' "$new_hosts" | grep -qxF "$host"; then
       sqlite3 "$DB_PATH" <<SQL >/dev/null
+.parameter init
+.parameter set @host '$host'
 INSERT INTO smart_master_state(host,stage,fails_in_stage,cooldown_runs)
-VALUES('$host',0,0,0)
+VALUES(@host,0,0,0)
 ON CONFLICT(host) DO UPDATE SET stage=0, fails_in_stage=0, cooldown_runs=0;
 SQL
       continue
@@ -410,14 +412,18 @@ SQL
       fi
 
       sqlite3 "$DB_PATH" <<SQL >/dev/null
+.parameter init
+.parameter set @host '$host'
 INSERT INTO smart_master_state(host,stage,fails_in_stage,cooldown_runs)
-VALUES('$host',$new_stage,0,$cooldown)
+VALUES(@host,$new_stage,0,$cooldown)
 ON CONFLICT(host) DO UPDATE SET stage=$new_stage, fails_in_stage=0, cooldown_runs=$cooldown;
 SQL
     else
       sqlite3 "$DB_PATH" <<SQL >/dev/null
+.parameter init
+.parameter set @host '$host'
 INSERT INTO smart_master_state(host,stage,fails_in_stage,cooldown_runs)
-VALUES('$host',$stage,$fails,0)
+VALUES(@host,$stage,$fails,0)
 ON CONFLICT(host) DO UPDATE SET stage=$stage, fails_in_stage=$fails;
 SQL
     fi
