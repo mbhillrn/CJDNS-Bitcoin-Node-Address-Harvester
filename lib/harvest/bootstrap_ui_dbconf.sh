@@ -247,6 +247,205 @@ db_query() {
   local tag="$1"; shift
   run_cmd_capture "$tag" sqlite3 -noheader -batch "$DB_PATH" "$*"
 }
+
+# ----- Host normalization (IPv6 full/exploded form) -----
+canon_host() {
+  # Canonicalize an IP string for DB keys.
+  # - Lowercase
+  # - If bracketed like [fc00::1]:8333 => fc00::1
+  # - If valid IP => IPv6 exploded (full) / IPv4 as-is
+  # - If not an IP => returns lowercased original
+  local raw="${1:-}"
+  [[ -n "$raw" ]] || { echo ""; return 0; }
+  python3 - <<'PY2' "$raw" 2>/dev/null || printf '%s\n' "${raw,,}"
+import ipaddress, sys
+h = (sys.argv[1] or "").strip().lower()
+
+# Strip [addr]:port form safely
+if h.startswith('['):
+    h = h[1:]
+if ']' in h:
+    h = h.split(']')[0]
+
+try:
+    ip = ipaddress.ip_address(h)
+    # exploded for v6 makes it "full"; v4 is already canonical enough
+    print(ip.exploded if ip.version == 6 else str(ip))
+except Exception:
+    print(h)
+PY2
+}
+
+db_migrate_fullip_if_needed() {
+  # One-time migration: rewrite master/confirmed/attempts to canonical host keys.
+  # Safe to run repeatedly; it will no-op once everything is canonical.
+  [[ -f "$DB_PATH" ]] || return 0
+
+  # If any IPv6 host looks non-canonical (has ::, uppercase A-F, or is shorter than 39 chars), migrate.
+  local need=0
+  need="$(sqlite3 "$DB_PATH" "
+    SELECT CASE WHEN EXISTS(
+      SELECT 1 FROM (
+        SELECT host FROM master
+        UNION ALL SELECT host FROM confirmed
+        UNION ALL SELECT host FROM attempts
+      )
+      WHERE host LIKE '%:%'
+        AND (
+          host LIKE '%::%'
+          OR host GLOB '*[A-F]*'
+          OR length(host) < 39
+        )
+      LIMIT 1
+    ) THEN 1 ELSE 0 END;
+  " 2>/dev/null || echo 0)"
+
+  [[ "$need" == "1" ]] || return 0
+
+  log_warn "DB migration: canonicalizing host keys to full IPv6 form (one-time)."
+
+  python3 - <<'PY3' "$DB_PATH"
+import sqlite3, ipaddress, sys
+
+db = sys.argv[1]
+con = sqlite3.connect(db)
+con.execute("PRAGMA foreign_keys=OFF;")
+cur = con.cursor()
+
+def canon(h: str):
+    if h is None:
+        return None
+    h = h.strip().lower()
+    # strip [addr]:port form
+    if h.startswith('['):
+        h = h[1:]
+    if ']' in h:
+        h = h.split(']')[0]
+    try:
+        ip = ipaddress.ip_address(h)
+        return ip.exploded if ip.version == 6 else str(ip)
+    except Exception:
+        return h
+
+cur.execute("BEGIN;")
+
+# Create new tables (same schema)
+cur.executescript("""
+DROP TABLE IF EXISTS master_new;
+DROP TABLE IF EXISTS confirmed_new;
+DROP TABLE IF EXISTS attempts_new;
+
+CREATE TABLE master_new (
+  host TEXT PRIMARY KEY,
+  first_seen_ts INTEGER NOT NULL,
+  last_seen_ts INTEGER NOT NULL,
+  source_flags TEXT NOT NULL DEFAULT ''
+);
+
+CREATE TABLE confirmed_new (
+  host TEXT PRIMARY KEY,
+  first_confirmed_ts INTEGER NOT NULL,
+  last_confirmed_ts INTEGER NOT NULL,
+  confirm_count INTEGER NOT NULL DEFAULT 1
+);
+
+CREATE TABLE attempts_new (
+  host TEXT PRIMARY KEY,
+  last_attempt_ts INTEGER,
+  attempt_count INTEGER NOT NULL DEFAULT 0,
+  last_result TEXT,
+  last_fail_ts INTEGER,
+  consecutive_fail INTEGER NOT NULL DEFAULT 0,
+  cooldown_until_ts INTEGER
+);
+""")
+
+# MASTER merge: min(first_seen), max(last_seen), union of source_flags tokens
+acc = {}
+for h, fst, lst, flags in cur.execute("SELECT host, first_seen_ts, last_seen_ts, source_flags FROM master;"):
+    ch = canon(h)
+    a = acc.setdefault(ch, {"fst": fst, "lst": lst, "flags": set()})
+    a["fst"] = min(a["fst"], fst)
+    a["lst"] = max(a["lst"], lst)
+    for tok in (flags or "").split(","):
+        tok = tok.strip()
+        if tok:
+            a["flags"].add(tok)
+
+for ch, a in acc.items():
+    cur.execute(
+        "INSERT INTO master_new(host, first_seen_ts, last_seen_ts, source_flags) VALUES (?,?,?,?);",
+        (ch, a["fst"], a["lst"], ",".join(sorted(a["flags"])))
+    )
+
+# CONFIRMED merge: min(first), max(last), sum(confirm_count)
+acc = {}
+for h, fst, lst, cnt in cur.execute("SELECT host, first_confirmed_ts, last_confirmed_ts, confirm_count FROM confirmed;"):
+    ch = canon(h)
+    a = acc.setdefault(ch, {"fst": fst, "lst": lst, "cnt": 0})
+    a["fst"] = min(a["fst"], fst)
+    a["lst"] = max(a["lst"], lst)
+    a["cnt"] += int(cnt or 0)
+
+for ch, a in acc.items():
+    cur.execute(
+        "INSERT INTO confirmed_new(host, first_confirmed_ts, last_confirmed_ts, confirm_count) VALUES (?,?,?,?);",
+        (ch, a["fst"], a["lst"], a["cnt"] if a["cnt"] > 0 else 1)
+    )
+
+# ATTEMPTS merge: max(last_attempt_ts), sum(attempt_count), take last_result from newest last_attempt_ts if possible,
+# max(last_fail_ts), max(consecutive_fail), max(cooldown_until_ts)
+acc = {}
+for row in cur.execute("SELECT host, last_attempt_ts, attempt_count, last_result, last_fail_ts, consecutive_fail, cooldown_until_ts FROM attempts;"):
+    h, last_attempt, cnt, last_res, last_fail, cons_fail, cooldown = row
+    ch = canon(h)
+    a = acc.setdefault(ch, {
+        "last_attempt": None,
+        "attempt_count": 0,
+        "last_result": None,
+        "last_fail": None,
+        "consecutive_fail": 0,
+        "cooldown": None,
+    })
+    # last_attempt: keep max, and keep matching last_result for that max
+    if last_attempt is not None:
+        if a["last_attempt"] is None or int(last_attempt) > int(a["last_attempt"]):
+            a["last_attempt"] = int(last_attempt)
+            a["last_result"] = last_res
+    a["attempt_count"] += int(cnt or 0)
+    if last_fail is not None:
+        a["last_fail"] = max(int(last_fail), int(a["last_fail"]) if a["last_fail"] is not None else int(last_fail))
+    a["consecutive_fail"] = max(int(cons_fail or 0), int(a["consecutive_fail"] or 0))
+    if cooldown is not None:
+        a["cooldown"] = max(int(cooldown), int(a["cooldown"]) if a["cooldown"] is not None else int(cooldown))
+
+for ch, a in acc.items():
+    cur.execute(
+        """INSERT INTO attempts_new(host,last_attempt_ts,attempt_count,last_result,last_fail_ts,consecutive_fail,cooldown_until_ts)
+           VALUES (?,?,?,?,?,?,?);""",
+        (ch, a["last_attempt"], a["attempt_count"], a["last_result"], a["last_fail"], a["consecutive_fail"], a["cooldown"])
+    )
+
+# Swap tables
+cur.executescript("""
+ALTER TABLE master RENAME TO master_old_fullip;
+ALTER TABLE confirmed RENAME TO confirmed_old_fullip;
+ALTER TABLE attempts RENAME TO attempts_old_fullip;
+
+ALTER TABLE master_new RENAME TO master;
+ALTER TABLE confirmed_new RENAME TO confirmed;
+ALTER TABLE attempts_new RENAME TO attempts;
+""")
+
+con.commit()
+con.close()
+print("OK: full-ip canonical migration complete.")
+PY3
+
+  # Quick sanity
+  sqlite3 "$DB_PATH" "PRAGMA integrity_check;" 2>/dev/null | head -n 1 || true
+}
+
 db_record_attempt() {
   # Usage: db_record_attempt "host"
   # Records a try into the canonical attempts table.
@@ -254,7 +453,9 @@ db_record_attempt() {
   # Non-fatal if DB/table is missing in some modes.
   local host="${1:-}"
   [[ -n "$host" ]] || return 0
-  host="${host,,}"
+  host="$(canon_host "${host:-}")"
+  host="$(canon_host "$host")"
+  [[ -n "$host" ]] || return 0
   local ts
   ts="$(date +%s)"
 
@@ -304,6 +505,10 @@ CREATE TABLE IF NOT EXISTS attempts (
 SQL
 }
 
+  # One-time: canonicalize IPv6 host keys (prevents shortened/full duplicates)
+  db_migrate_fullip_if_needed || true
+
+
 migrate_attempts_add_cooldown_until_ts() {
   # Add attempts.cooldown_until_ts if missing (safe on existing DBs).
   # SQLite lacks 'ADD COLUMN IF NOT EXISTS', so we probe table_info first.
@@ -316,7 +521,10 @@ migrate_attempts_add_cooldown_until_ts() {
 
 db_upsert_master() {
   # Usage: db_upsert_master host source
-  local host="${1,,}" src="$2"
+  local host src="$2"
+  host="$(canon_host "${1:-}")"
+  host="$(canon_host "$host")"
+  [[ -n "$host" ]] || return 0
   local now
   now="$(date +%s)"
   sqlite3 "$DB_PATH" <<SQL >/dev/null
@@ -334,7 +542,10 @@ SQL
 
 db_upsert_confirmed() {
   # Usage: db_upsert_confirmed host
-  local host="${1,,}"
+  local host
+  host="$(canon_host "${1:-}")"
+  host="$(canon_host "$host")"
+  [[ -n "$host" ]] || return 0
   local now
   now="$(date +%s)"
   sqlite3 "$DB_PATH" <<SQL >/dev/null
