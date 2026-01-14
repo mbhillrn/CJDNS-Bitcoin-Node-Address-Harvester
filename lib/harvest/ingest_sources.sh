@@ -11,7 +11,7 @@ ingest_core_peers_to_db() {
   fi
 
   echo "$peers" | jq -r '.[] | select(.network=="cjdns") | .addr' | while IFS= read -r raw; do
-    host="$(cjdns_host_from_maybe_bracketed "$raw")"
+    host="$(canon_host "$(cjdns_host_from_maybe_bracketed "$raw")")"
     db_upsert_master "$host" "core"
     db_upsert_confirmed "$host"
   done
@@ -20,7 +20,8 @@ ingest_core_peers_to_db() {
 ingest_addrman_cjdns_to_db() {
   local j
   j="$(run_cmd_capture "addrman_cjdns" bash -lc "$CLI getnodeaddresses 0 cjdns")" || return 0
-  echo "$j" | jq -r '.[]? | .address' | while IFS= read -r host; do
+  echo "$j" | jq -r \'.[]? | .address\' | while IFS= read -r host; do
+    host="$(canon_host "$host")"
     [[ -n "$host" && "$host" != "null" ]] || continue
     db_upsert_master "$host" "addrman"
   done
@@ -84,12 +85,20 @@ ingest_nodestore_to_db() {
       fi
 
       while IFS= read -r ip; do
-        host="$(cjdns_host_from_maybe_bracketed "$ip")"
+        host="$(canon_host "$(cjdns_host_from_maybe_bracketed "$ip")")"
         [[ -n "$host" ]] || continue
         page_seen=$((page_seen+1))
 
         now="$(date +%s)"
-        inserted="$(sqlite3 "$DB_PATH" "INSERT OR IGNORE INTO master(host, first_seen_ts, last_seen_ts, source_flags) VALUES('$host',$now,$now,'nodestore'); SELECT changes();")"
+        inserted="$(sqlite3 "$DB_PATH" <<SQL
+.parameter init
+.parameter set @host '$host'
+.parameter set @now $now
+INSERT OR IGNORE INTO master(host, first_seen_ts, last_seen_ts, source_flags)
+VALUES(@host,@now,@now,'nodestore');
+SELECT changes();
+SQL
+)"
 
         if [[ "${inserted:-0}" == "1" ]]; then
           page_new=$((page_new+1))
@@ -230,12 +239,20 @@ ingest_nodestore_to_db() {
         fi
 
         while IFS= read -r ip; do
-          host="$(cjdns_host_from_maybe_bracketed "$ip")"
+          host="$(canon_host "$(cjdns_host_from_maybe_bracketed "$ip")")"
           [[ -n "$host" ]] || continue
           page_seen=$((page_seen+1))
 
           now="$(date +%s)"
-          inserted="$(sqlite3 "$DB_PATH" "INSERT OR IGNORE INTO master(host, first_seen_ts, last_seen_ts, source_flags) VALUES('$host',$now,$now,'remote_nodestore'); SELECT changes();")"
+          inserted="$(sqlite3 "$DB_PATH" <<SQL
+.parameter init
+.parameter set @host '$host'
+.parameter set @now $now
+INSERT OR IGNORE INTO master(host, first_seen_ts, last_seen_ts, source_flags)
+VALUES(@host,@now,@now,'remote_nodestore');
+SELECT changes();
+SQL
+)"
 
           if [[ "${inserted:-0}" == "1" ]]; then
             page_new=$((page_new+1))
@@ -334,13 +351,14 @@ core_cjdns_connected_hosts() {
   echo "$peers" \
     | jq -r '.[] | select(.network=="cjdns") | .addr' \
     | while IFS= read -r raw; do
-        cjdns_host_from_maybe_bracketed "$raw"
+        canon_host "$(cjdns_host_from_maybe_bracketed "$raw")"
       done \
     | sort -u
 }
 
 db_attempt_begin() {
-  local host="${1,,}"
+  local host
+  host="$(canon_host "${1:-}")"
   local now; now="$(date +%s)"
   sqlite3 "$DB_PATH" <<SQL >/dev/null
 INSERT INTO attempts(host, last_attempt_ts, attempt_count, last_result, last_fail_ts, consecutive_fail)
@@ -356,7 +374,7 @@ db_attempt_result_ok() {
   # Usage: db_attempt_result_ok host [reason]
   local host="${1:-}"
   [[ -n "$host" ]] || return 0
-  host="${host,,}"
+  host="$(canon_host "$host")"
   local ts
   ts="$(date +%s)"
 
@@ -373,7 +391,8 @@ SQL
 }
 
 db_attempt_result_fail() {
-  local host="${1,,}"
+  local host
+  host="$(canon_host "${1:-}")"
   local now; now="$(date +%s)"
 
   # bump fail counters
@@ -393,14 +412,15 @@ is_host_connected_in_core() {
   #
   # Avoid piped while-loop + exit patterns (subshell). Normalize then exact-match.
 
-  local host="${1,,}"
+  local host
+  host="$(canon_host "${1:-}")"
   local peers
 
   peers="$(run_cmd_capture_json "getpeerinfo" bash -lc "$CLI getpeerinfo")" || return 1
 
   if echo "$peers" \
       | jq -r '.[] | select(.network=="cjdns") | .addr' \
-      | while IFS= read -r raw; do cjdns_host_from_maybe_bracketed "$raw"; done \
+      | while IFS= read -r raw; do canon_host "$(cjdns_host_from_maybe_bracketed "$raw")"; done \
       | grep -qxF "$host"
   then
     return 0
@@ -410,7 +430,8 @@ is_host_connected_in_core() {
 
 verify_onetry_core() {
   # Usage: verify_onetry_core host
-  local host="${1,,}"
+  local host
+  host="$(canon_host "${1:-}")"
 
   if [[ "$ONETRY_VERIFY_MODE" == "delay" ]]; then
     sleep "${ONETRY_VERIFY_DELAY_SEC}"
@@ -441,8 +462,8 @@ attempt_one_host() {
   # Usage: attempt_one_host host
   # In INLINE mode: verify per-host and write confirmed/attempt result immediately.
   # In BATCH mode: dispatch onetry only; confirmation+attempt results are handled after post-snapshot.
-  local host="${1,,}"
-
+  local host
+  host="$(canon_host "${1:-}")"
   # informational ping only (MUST NOT gate onetry)
   # Use cjdns-aware ping (RouterModule_lookup + SwitchPinger_ping).
   # NOTE: Many cjdns hosts do not answer ICMPv6, so ping6 is not reliable here.
@@ -564,7 +585,7 @@ ingest_confirmed_sources() {
   echo "  addrman_cjdns_total=$total"
   if (( total > 0 )); then
     echo "$j" | jq -r '.[]? | .address' | while IFS= read -r host; do
-      host="${host,,}"
+      host="$(canon_host "$host")"
       [[ -n "$host" ]] || continue
       db_upsert_confirmed "$host"
       db_upsert_master "$host" "addrman"
@@ -577,7 +598,7 @@ ingest_confirmed_sources() {
   echo "  core_connected_now=$pre_n"
   if (( pre_n > 0 )); then
     printf '%s\n' "$pre" | sed '/^$/d' | while IFS= read -r host; do
-      host="${host,,}"
+      host="$(canon_host "$host")"
       [[ -n "$host" ]] || continue
       db_upsert_confirmed "$host"
       db_upsert_master "$host" "connected_now"
