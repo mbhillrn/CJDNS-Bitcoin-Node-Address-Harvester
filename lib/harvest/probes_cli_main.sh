@@ -63,7 +63,7 @@ probe_router_status() {
     | map(select(.!=""))
     | @tsv
   ' | while IFS=$'\t' read -r lladdr dir ink outk los oor seeded; do
-    host="$(cjdns_host_from_maybe_bracketed "$lladdr")"
+    host="$(canon_host "$(cjdns_host_from_maybe_bracketed "$lladdr")")"
     # rebuild line pieces (some fields may be empty depending on seeded flag)
     line="    ${host}  ${dir}"
     [[ -n "${ink:-}"    ]] && line="${line}  ${ink}"
@@ -83,7 +83,7 @@ probe_router_status() {
     | select(.state=="UNRESPONSIVE")
     | (.lladdr // "NA")
   ' | while IFS= read -r lladdr; do
-    host="$(cjdns_host_from_maybe_bracketed "$lladdr")"
+    host="$(canon_host "$(cjdns_host_from_maybe_bracketed "$lladdr")")"
     printf "    %s\n" "$host"
   done | head -n 200
   fi
@@ -113,7 +113,7 @@ probe_core_peers() {
     | select(.network=="cjdns")
     | (if .inbound then "IN" else "OUT" end) + "\t" + .addr
   ' | while IFS=$'\t' read -r dir addr; do
-    host="$(cjdns_host_from_maybe_bracketed "$addr")"
+    host="$(canon_host "$(cjdns_host_from_maybe_bracketed "$addr")")"
     printf "    %-3s RAW=%s  HOST=%s\n" "$dir" "$addr" "$host"
   done | head -n 200
 }
@@ -150,7 +150,7 @@ probe_nodestore_page0() {
   entries="$(echo "$json" | jq -r '(.routingTable|length)')"
   first_ip="$(echo "$json" | jq -r '(.routingTable[0].ip // "NA")')"
   first_path="$(echo "$json" | jq -r '(.routingTable[0].path // "NA")')"
-  first_host="$(cjdns_host_from_maybe_bracketed "$first_ip")"
+  first_host="$(canon_host "$(cjdns_host_from_maybe_bracketed "$first_ip")")"
 
   echo "  more=$more  entries=$entries"
   echo "  first_ip_raw=$first_ip"
