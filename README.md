@@ -1,149 +1,238 @@
 # CJDNS Bitcoin Core Address Harvester
 
-Harvests **cjdns (fc00::)** Bitcoin Core peers by scraping CJDNS NodeStore and other cjdnstool expansions for Bitcoin Core peer discovery, then probing candidates via `bitcoin-cli addnode onetry`. Confirmed nodes and history are tracked in a local SQLite database.
+**Find Bitcoin nodes on the CJDNS mesh network (fc00:: addresses)**
 
 ---
 
-## Purpose
-This project exists to discover **Bitcoin Core nodes reachable over CJDNS (fc00::)** by:
-- Scraping CJDNS NodeStore
-- Expanding via cjdns peer information
-- Probing candidates with Bitcoin Core itself
-- CJDNS SEED ADDRESS TEXT FILE: ./cjdns-bitcoin-seed-list.txt contains all known addresses as of 1/13/2026. 
- - This file is unlikely to be updated, however, state.db will likely be updated every once in a while with new addresses if found.
+## Support This Project
+
+If you find this tool useful, please consider donating:
+
+**Bitcoin:** `bc1qy63057zemrskq0n02avq9egce4cpuuenm5ztf5`
+
+Any amount is appreciated!
 
 ---
 
-## PREP / WARNINGS
+## What Is This?
 
-**This tool writes runtime state directly into the project directory.**
+This is a tool I built over a couple months to discover Bitcoin Core nodes running on CJDNS (the mesh network using fc00:: IPv6 addresses). It works by:
 
-Runtime files include:
-- **`state.db`** – SQLite database of *all discovered fc00 addresses*
-  - **This file is included in the repo and may be updated over time**
-  - Contains discovered cjdns fc00 addresses and which ones are confirmed Bitcoin nodes
-  - Delete or rename it to start with a fresh database; it will be recreated automatically
-  - If you keep it, the harvester can continue attempting/testing addresses over time
-- **`harvest.local.conf`** – Local runtime configuration (created automatically on first run)
+1. Scanning your local CJDNS NodeStore for addresses
+2. Using "frontier expansion" to discover more nodes through your peers
+3. Testing each address to see if it's running Bitcoin Core
+4. Keeping track of everything in a local database
 
-Dependency installation and notes:
-- Run or review: `./scripts/install_deps_ubuntu.sh`
+I wrote this mostly as a hobby project to learn more about CJDNS and Bitcoin networking. Got a lot of help from AI to make the interface look nice and handle edge cases properly.
+
+---
+
+## Why Would I Want This?
+
+If you're running Bitcoin Core over CJDNS, you probably want to find other nodes to connect to. This tool automates that discovery process and maintains a database of known nodes so you don't have to manually hunt for peers.
+
+The included `state.db` database has many addresses I've discovered and update somewhat regularly. You can use it as-is or start fresh.
+
+---
+
+## Quick Start
+
+**Requirements:**
 - Linux (tested on Ubuntu)
+- Bitcoin Core with CJDNS support
+- CJDNS running with admin interface enabled
+- `cjdnstool` installed (`npm install -g cjdnstool`)
+- Standard tools: `jq`, `sqlite3`, `bash`
+
+**Install dependencies (Ubuntu):**
+```bash
+./scripts/install_deps_ubuntu.sh
+```
+
+**Run the harvester:**
+```bash
+./harvest.v5.sh
+```
+
+The script will auto-detect your Bitcoin Core and CJDNS settings, then present you with three options:
+
+1. **Run harvester** - Continuously discover and test new addresses
+2. **Onetry master list** - Test all discovered addresses
+3. **Onetry confirmed list** - Reconnect to known Bitcoin nodes
+
+**First-time users:** Start with option 3 to quickly connect your Bitcoin node to the confirmed CJDNS addresses in the database. This gets you connected to known nodes right away. After that, you can run option 1 to continuously discover new addresses.
+
 ---
 
 ## Features
-- Harvest cjdns IPv6 candidates from:
-  - Local CJDNS NodeStore
-  - Remote NodeStore on other LAN machines (SSH)
-  - Optional **Frontier Expansion** (PeerInfo → getPeers)
-- Probe candidates using Bitcoin Core (`addnode onetry`)
-- Persistent tracking in `state.db`:
-  - **Master** list (all candidates)
-  - **Confirmed** list (verified Bitcoin Core nodes)
-  - Attempt history, cooldowns, and discovery source
-- **Smart Mode** loop scheduling with periodic rechecks
+
+### Version 5 (Current)
+- **Simple 3-option menu** - No confusing modes, just pick what you want to do
+- **Automatic everything** - Detects your Bitcoin/CJDNS setup automatically
+- **Local harvesting** - Scans your NodeStore and frontier peers
+- **Remote harvesting** - Can scan other CJDNS machines on your LAN (experimental!)
+- **Smart testing** - Only tests NEW addresses each run, doesn't re-test known ones
+- **Clean interface** - Pretty colors, progress bars, actual useful information
+- **Database tracking** - Remembers all addresses and which ones have Bitcoin nodes
+
+### Remote Harvesting (Experimental!)
+If you have other machines on your network running CJDNS, you can scan their NodeStores AND run frontier expansion on them too. The setup wizard will walk you through configuring SSH keys for automatic login.
+
+This is pretty niche (who has multiple CJDNS nodes on their LAN?) but it works great if you do!
 
 ---
 
-## Requirements
-- Linux
-- Bitcoin Core (`bitcoin-cli`)
-- `sqlite3`
-- `jq`
-- `curl`
-- `ssh` client (for remote NodeStore harvesting)
-- CJDNS with admin enabled
+## The Database (`state.db`)
 
-> This project expects `cjdnstool` to be installed and able to communicate with your CJDNS admin socket/port. Detection is automatic in most cases.
+The included database has addresses I've been collecting and update somewhat regularly. You can:
 
----
+- **Use it as-is** - Already has many confirmed Bitcoin nodes
+- **Start fresh** - Just delete or rename `state.db` and it'll create a new one
 
-## Database Notes (`./state.db`)
-- I included the database I have harvested in this repo. If you wish to start new, just delete or rename the state.db out of your project folder. 
-- If you decide to leave it in, you can onetry all of the confirmed list via options, or with smart mode automatically just by letting it run for some time. 
+The database has two main lists:
 
-The database stores **all discovered cjdns fc00 addresses**, sourced from:
-- CJDNS NodeStore
-- Bitcoin Core peer data
-- Frontier expansion scans
+- **Master list** - Every fc00:: address ever discovered
+- **Confirmed list** - Addresses that successfully connected (running Bitcoin Core)
 
-Tracked lists:
-- **Master** – every fc address discovered
-- **Confirmed** – fc addresses verified to host Bitcoin Core nodes
-
-Additional metadata includes:
-- Discovery source
-- Attempt counts and failures
-- Timing data used by Smart Mode retry logic
+When the harvester runs, it only tests NEW addresses it hasn't seen before. Addresses that are already in the master list don't get tested again (unless you explicitly choose option 2 or 3 from the menu).
 
 ---
 
-## Running the Harvester
+## How It Works
 
-From inside the project directory:
+### Discovery Sources
 
-```bash
-./harvest.sh --run
+1. **NodeStore** - Your local CJDNS routing table
+2. **Frontier Expansion** - Queries your direct peers for THEIR peers (2-hop discovery)
+3. **Bitcoin Addrman** - Addresses Bitcoin Core already knows about
+4. **Connected Peers** - Any address you're currently connected to
+5. **Remote NodeStore** - Same as #1 but on other machines (if configured)
+6. **Remote Frontier** - Same as #2 but on other machines (if configured)
+
+### Testing Process
+
+After discovering addresses, the harvester uses Bitcoin Core's `addnode <address> onetry` command to test each one. If it connects successfully, that address gets added to the confirmed list.
+
+There's a 10-second wait after testing to let connections establish, then it checks `getpeerinfo` to see what actually connected.
+
+---
+
+## Configuration
+
+The harvester asks you a few questions on first run:
+
+1. **Bitcoin Core location** - Usually auto-detected
+2. **CJDNS admin settings** - Usually auto-detected (127.0.0.1:11234)
+3. **Run mode** - Once (single pass) or Continuous (loop forever)
+4. **Scan interval** - How many seconds between loops (default: 60)
+5. **Remote harvesting** - Do you want to scan other machines? (optional)
+
+All settings are saved in `harvest.local.conf` so you don't have to re-enter them every time.
+
+---
+
+## Files in This Repo
+
+```
+harvest.v5.sh           # Main script (run this!)
+state.db                # Address database (included)
+lib/v5/                 # Version 5 modules
+  ├── ui.sh            # Pretty colors and formatting
+  ├── db.sh            # Database operations
+  ├── detect.sh        # Auto-detect Bitcoin/CJDNS
+  ├── harvest.sh       # All harvesting functions
+  ├── onetry.sh        # Testing logic
+  ├── display.sh       # Status displays
+  ├── frontier.sh      # Frontier expansion
+  ├── remote.sh        # Remote host SSH setup
+  └── utils.sh         # Helper functions
+scripts/
+  ├── canon_host.sh    # IPv6 normalization
+  └── install_deps_ubuntu.sh  # Dependency installer
 ```
 
-The script will attempt to auto-detect:
-- `bitcoin-cli` location
-- Bitcoin Core datadir
-- `bitcoin.conf`
-- CJDNS admin IP/port (usually `127.0.0.1:11234`)
+---
 
-You will be prompted to confirm or override detected values.
+## Troubleshooting
+
+**"cjdnstool: command not found"**
+```bash
+npm install -g cjdnstool
+```
+
+**"sqlite3: command not found"**
+```bash
+sudo apt-get install sqlite3
+```
+
+**Remote harvesting isn't working**
+- Make sure SSH is enabled on the remote machine
+- The setup wizard will walk you through configuring SSH keys
+- Test manually first: `ssh user@remotehost cjdnstool -a 127.0.0.1 -p 11234 -P NONE cexec Core_nodeInfo`
+
+**No addresses being discovered**
+- Check that CJDNS is actually running: `cjdnstool -a 127.0.0.1 -p 11234 -P NONE cexec Core_nodeInfo`
+- Make sure you have some CJDNS peers connected
+- Frontier expansion won't work if you don't have the ReachabilityCollector module enabled
 
 ---
 
-## Smart Mode (Recommended)
+## Version History
 
-Smart Mode automates harvesting with minimal configuration and safe pacing.
+### v5.0 (January 2026) - Complete Rewrite
+- Simplified from ~3,800 lines to ~1,500 lines
+- Removed confusing Smart/Manual mode distinction
+- Much prettier interface with colors and progress indicators
+- Better error handling and user feedback
+- Added remote frontier expansion
+- Fixed logic bugs around address re-testing
+- Everything just works now
 
-You will be prompted for:
-- **Seconds between SMART scans**
-- **Enable Frontier Expansion**
-  - If enabled, how often it should run (every N scans)
-- **Harvest remote NodeStore** (advanced)
-
-### NodeStore Requirements
-
-**Remote NodeStore harvesting WILL NOT WORK unless:**
-- SSH is enabled on the remote machine(s)
-- Passwordless SSH via secure keys is configured
-- The same username exists on all target machines
-- The user has sufficient privileges
-
-You will be asked for:
-- Host/IP (single or comma-separated)
-  - Example: `192.168.0.4` or `192.168.0.4,192.168.0.5`
-
-Preflight checks will validate admin access, compatibility, and required tools.
+### v4.0 (December 2025)
+- Original version with Smart/Manual modes
+- Worked but was unnecessarily complex
+- Kept re-testing addresses that were already known
+- Interface was functional but ugly
 
 ---
 
-## Manual Mode (Advanced)
+## Contributing
 
-If Smart Mode is disabled, additional controls are exposed:
+This is a hobby project but I'm happy to accept pull requests! Feel free to:
 
-- Seconds between scans
-- Enable Frontier Expansion
-- Harvest remote NodeStore
-- **Retry master list every N scans**
-  - Retries *entire* master list via `addnode onetry`
-  - Can be time-consuming on large databases
-  - Recommended values: `50–100`, `0` disables
-- **Recheck confirmed list every N scans**
-  - Attempts reconnection to all confirmed nodes
-- Seconds between `onetry` attempts
-- Grace period after `onetry` batches
-- **Enable informational ping** (optional)
-  - Improves NodeStore freshness in practice
-- Ping timeout (if ping enabled)
+- Report bugs
+- Suggest features
+- Fix my terrible code
+- Improve the documentation
+
+Just open an issue or PR on GitHub.
+
+---
+
+## Credits
+
+Written by mbhillrn over a couple months of spare time. Got tons of help from AI for:
+- Making the interface not look like trash
+- Fixing logic bugs I couldn't figure out
+- Adding all the pretty colors and progress bars
+- Generally making it professional-looking
+
+The core idea and Bitcoin/CJDNS integration is all mine though!
 
 ---
 
 ## License
 
-MIT
+MIT - Do whatever you want with this
 
+---
+
+## Support Development
+
+If this tool helped you discover Bitcoin nodes or you just think it's cool:
+
+**Bitcoin:** `bc1qy63057zemrskq0n02avq9egce4cpuuenm5ztf5`
+
+I'll keep updating the database as I find more addresses. Any amount is appreciated!
+
+Thanks for using my harvester!
