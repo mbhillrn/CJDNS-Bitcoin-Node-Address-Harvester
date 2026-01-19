@@ -106,7 +106,7 @@ configure_remote_hosts() {
 
             host_num=$((host_num + 1))
         else
-            printf "${C_WARN}login required${C_RESET}\n"
+            printf "${C_WARNING}login required${C_RESET}\n"
             echo
 
             # Ensure SSH key exists (silently)
