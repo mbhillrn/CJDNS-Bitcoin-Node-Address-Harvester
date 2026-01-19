@@ -5,6 +5,7 @@ harvest.conf
 # runtime / generated data
 tmp/
 bak/
+state.db
 
 # editor / OS junk
 .DS_Store

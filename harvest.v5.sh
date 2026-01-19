@@ -25,6 +25,191 @@ source "${SCRIPT_DIR}/lib/v5/display.sh"    # Status display
 export BASE_DIR DB_PATH
 
 # ============================================================================
+# Database Management Functions
+# ============================================================================
+export_database_to_txt() {
+    print_box "EXPORT DATABASE TO TXT FILE"
+
+    local out="./cjdns-bitcoin-seed-list.txt"
+    local date_now
+    date_now="$(date +%Y-%m-%d)"
+
+    {
+        echo "As of: $date_now"
+        echo
+        echo "KNOWN: CJDNS fc** fc00 addresses with bitcoin nodes"
+        echo "== CONFIRMED BITCOIN NODES (confirmed.host) =="
+        sqlite3 "$DB_PATH" "SELECT '  ' || host FROM confirmed ORDER BY host;"
+        echo
+        echo "== ALL DISCOVERED CJDNS ADDRESSES (master.host) =="
+        sqlite3 "$DB_PATH" "SELECT '  ' || host FROM master ORDER BY host;"
+    } > "$out"
+
+    echo
+    printf "  ${C_SUCCESS}✓ Exported database to:${C_RESET} %s\n" "$out"
+    echo
+    printf "  ${C_BOLD}Summary:${C_RESET}\n"
+    printf "    Confirmed:  %s\n" "$(db_count_confirmed)"
+    printf "    Master:     %s\n" "$(db_count_master)"
+}
+
+delete_database() {
+    print_box "DELETE DATABASE"
+
+    echo
+    printf "  ${C_ERROR}${C_BOLD}WARNING:${C_RESET} This will delete state.db\n"
+    printf "  You will need to reseed or rebuild the database on next run.\n"
+    echo
+    read -r -p "  Are you sure? [y/N]: " confirm
+
+    if [[ "$confirm" =~ ^[Yy]$ ]]; then
+        rm -f "$DB_PATH"
+        echo
+        printf "  ${C_SUCCESS}✓ Database deleted${C_RESET}\n"
+        echo
+        printf "  On next run, you'll be prompted to seed from confirmed list.\n"
+    else
+        echo
+        printf "  ${C_MUTED}Cancelled${C_RESET}\n"
+    fi
+}
+
+seed_database_from_seeddb() {
+    local seed_mode="$1"  # "confirmed_only", "confirmed_with_onetry", "all"
+
+    local seeddb="${BASE_DIR}/lib/seeddb.db"
+    if [[ ! -f "$seeddb" ]]; then
+        status_error "Seed database not found at: $seeddb"
+        return 1
+    fi
+
+    echo
+    printf "  ${C_INFO}Seeding database from:${C_RESET} %s\n" "$seeddb"
+
+    # Initialize blank database
+    db_init
+
+    case "$seed_mode" in
+        "confirmed_only"|"confirmed_with_onetry")
+            # Seed only confirmed list (and add to master)
+            local confirmed_addresses
+            mapfile -t confirmed_addresses < <(sqlite3 "$seeddb" "SELECT host FROM confirmed;")
+
+            local count=0
+            for addr in "${confirmed_addresses[@]}"; do
+                [[ -n "$addr" ]] || continue
+                db_upsert_confirmed "$addr"
+                db_upsert_master "$addr" "seeded"
+                count=$((count + 1))
+            done
+
+            echo
+            printf "  ${C_SUCCESS}✓ Seeded %s confirmed addresses${C_RESET}\n" "$count"
+
+            if [[ "$seed_mode" == "confirmed_with_onetry" ]]; then
+                echo
+                printf "  ${C_INFO}Attempting connection to seeded addresses...${C_RESET}\n"
+                sleep 2
+                onetry_all_confirmed
+            fi
+            ;;
+
+        "all")
+            # Seed everything (master + confirmed)
+            echo
+            printf "  ${C_INFO}Seeding complete database (master + confirmed)...${C_RESET}\n"
+
+            # Seed master
+            local master_count=0
+            while IFS= read -r addr; do
+                [[ -n "$addr" ]] || continue
+                db_upsert_master "$addr" "seeded"
+                master_count=$((master_count + 1))
+            done < <(sqlite3 "$seeddb" "SELECT host FROM master;")
+
+            # Seed confirmed
+            local confirmed_count=0
+            while IFS= read -r addr; do
+                [[ -n "$addr" ]] || continue
+                db_upsert_confirmed "$addr"
+                confirmed_count=$((confirmed_count + 1))
+            done < <(sqlite3 "$seeddb" "SELECT host FROM confirmed;")
+
+            echo
+            printf "  ${C_SUCCESS}✓ Seeded %s master addresses${C_RESET}\n" "$master_count"
+            printf "  ${C_SUCCESS}✓ Seeded %s confirmed addresses${C_RESET}\n" "$confirmed_count"
+            ;;
+    esac
+}
+
+show_database_first_run_menu() {
+    print_box "DATABASE SETUP"
+
+    echo
+    printf "  ${C_WARNING}No database detected${C_RESET}\n"
+    echo
+    printf "  ${C_BOLD}Would you like to:${C_RESET}\n\n"
+    printf "  ${C_SUCCESS}1)${C_RESET} Seed confirmed CJDNS Bitcoin node addresses and attempt connection ${C_DIM}(RECOMMENDED)${C_RESET}\n"
+    printf "     └─ Seeds database with known Bitcoin nodes and connects via onetry\n\n"
+    printf "  ${C_INFO}2)${C_RESET} Seed confirmed CJDNS Bitcoin node addresses only\n"
+    printf "     └─ Seeds database with known Bitcoin nodes, returns to menu\n\n"
+    printf "  ${C_WARNING}3)${C_RESET} Continue without seeding\n"
+    printf "     └─ Database will be created blank during first harvest\n\n"
+    printf "  ${C_MUTED}4)${C_RESET} Seed complete database (master + confirmed) ${C_DIM}(Advanced)${C_RESET}\n"
+    printf "     └─ Seeds ALL addresses, including non-Bitcoin nodes\n\n"
+
+    local choice
+    read -r -p "Choice [1-4]: " choice
+
+    case "$choice" in
+        1)
+            seed_database_from_seeddb "confirmed_with_onetry"
+            ;;
+        2)
+            seed_database_from_seeddb "confirmed_only"
+            ;;
+        3)
+            echo
+            printf "  ${C_INFO}Continuing with blank database${C_RESET}\n"
+            sleep 1
+            db_init
+            ;;
+        4)
+            seed_database_from_seeddb "all"
+            ;;
+        *)
+            echo
+            status_error "Invalid choice, creating blank database"
+            sleep 1
+            db_init
+            ;;
+    esac
+
+    echo
+    read -r -p "Press Enter to continue to main menu..."
+}
+
+check_database_and_show_stats() {
+    if [[ ! -f "$DB_PATH" ]]; then
+        show_database_first_run_menu
+        return
+    fi
+
+    # Database exists, show quick stats
+    local master_count confirmed_count last_modified
+    master_count="$(db_count_master)"
+    confirmed_count="$(db_count_confirmed)"
+    last_modified="$(stat -c %y "$DB_PATH" 2>/dev/null | cut -d' ' -f1)"
+
+    echo
+    printf "  ${C_SUCCESS}✓ Database found:${C_RESET} %s\n" "$DB_PATH"
+    printf "    Last updated:  %s\n" "$last_modified"
+    printf "    Master:        %s addresses\n" "$master_count"
+    printf "    Confirmed:     %s addresses\n" "$confirmed_count"
+    sleep 1
+}
+
+# ============================================================================
 # Main Menu
 # ============================================================================
 show_main_menu() {
@@ -33,12 +218,22 @@ show_main_menu() {
 
     echo
     printf "${C_BOLD}Choose operation:${C_RESET}\n\n"
-    printf "  ${C_SUCCESS}1)${C_RESET} Run harvester (continuous discovery)\n"
-    printf "     └─ Harvest nodestore → frontier → onetry new addresses → repeat\n\n"
-    printf "  ${C_INFO}2)${C_RESET} Onetry master list\n"
-    printf "     └─ Try connecting to all discovered addresses\n\n"
-    printf "  ${C_WARNING}3)${C_RESET} Onetry confirmed list\n"
-    printf "     └─ Retry addresses with known Bitcoin nodes\n\n"
+    printf "  ${C_SUCCESS}1)${C_RESET} Run Harvester\n"
+    printf "     └─ Harvest local nodestore and frontier search (with options to harvest\n"
+    printf "        from other machines on local network), then attempt Bitcoin Core\n"
+    printf "        connection via onetry\n\n"
+    printf "  ${C_INFO}2)${C_RESET} Bitcoin Core: Attempt connection to all known CONFIRMED CJDNS Bitcoin\n"
+    printf "     Node Addresses\n"
+    printf "     └─ Retry database addresses with known associated Bitcoin nodes\n\n"
+    printf "  ${C_WARNING}3)${C_RESET} Bitcoin Core: Attempt connection to ALL CJDNS addresses in database,\n"
+    printf "     including those unlikely to have Bitcoin Core nodes\n"
+    printf "     └─ Try connecting to all discovered addresses. EXHAUSTIVE, may be time\n"
+    printf "        consuming dependent upon size of database. Recommended only if\n"
+    printf "        you're bored :)\n\n"
+    printf "  ${C_MUTED}4)${C_RESET} Database: Create txt file showing all discovered CJDNS addresses\n"
+    printf "     └─ Creates cjdns-bitcoin-seed-list.txt in program directory\n\n"
+    printf "  ${C_ERROR}5)${C_RESET} Database: Delete current database (state.db)\n"
+    printf "     └─ Deletes/resets current database, prompting setup on next run\n\n"
     printf "  ${C_ERROR}0)${C_RESET} Exit\n\n"
 }
 
@@ -265,9 +460,6 @@ run_harvester_mode() {
 # Main Entry Point
 # ============================================================================
 main() {
-    # Initialize database
-    db_init
-
     # Detect and confirm Bitcoin Core
     detect_and_confirm_bitcoin
 
@@ -277,24 +469,37 @@ main() {
     # Run preflight checks
     run_preflight_checks
 
+    # Check database and show stats (or first-run setup)
+    check_database_and_show_stats
+
     # Main menu loop
     while true; do
         show_main_menu
 
         local choice
-        read -r -p "Choice [1-3, 0=exit]: " choice
+        read -r -p "Choice [1-5, 0=exit]: " choice
 
         case "$choice" in
             1)
                 run_harvester_mode
                 ;;
             2)
-                onetry_all_master
+                onetry_all_confirmed
                 echo
                 read -r -p "Press Enter to continue..."
                 ;;
             3)
-                onetry_all_confirmed
+                onetry_all_master
+                echo
+                read -r -p "Press Enter to continue..."
+                ;;
+            4)
+                export_database_to_txt
+                echo
+                read -r -p "Press Enter to continue..."
+                ;;
+            5)
+                delete_database
                 echo
                 read -r -p "Press Enter to continue..."
                 ;;
