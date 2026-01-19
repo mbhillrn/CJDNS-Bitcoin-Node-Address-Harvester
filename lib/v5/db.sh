@@ -111,6 +111,16 @@ db_is_in_master() {
     (( count > 0 ))
 }
 
+db_is_in_confirmed() {
+    local host
+    host="$(canon_host "${1:-}")"
+    [[ -n "$host" ]] || return 1
+
+    local count
+    count="$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM confirmed WHERE host='$host';" 2>/dev/null || echo "0")"
+    (( count > 0 ))
+}
+
 # ============================================================================
 # Helper to check if address is new
 # ============================================================================

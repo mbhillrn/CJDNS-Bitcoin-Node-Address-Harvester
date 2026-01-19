@@ -30,9 +30,10 @@ onetry_addresses() {
 
     # Dispatch onetry for each address
     local dispatched=0 failed=0 current=0
-    local show_every=10  # Show progress every N addresses
+    local dots_cycle=0
+    local dots_pattern=("." ".." "..." ".." ".")
 
-    printf "  ${C_DIM}Dispatching onetry commands...${C_RESET}\n\n"
+    echo
 
     for addr in "${addresses[@]}"; do
         addr="$(canon_host "$addr")"
@@ -40,19 +41,19 @@ onetry_addresses() {
 
         current=$((current + 1))
 
+        # Cycle dots on EVERY iteration for continuous animation
+        dots_cycle=$(( (dots_cycle + 1) % ${#dots_pattern[@]} ))
+
         if bash -c "$CLI addnode \"[$addr]\" onetry" >/dev/null 2>&1; then
             dispatched=$((dispatched + 1))
         else
             failed=$((failed + 1))
         fi
 
-        # Show progress periodically
-        if (( current % show_every == 0 )) || (( current == count )); then
-            printf "  ${C_INFO}Progress:${C_RESET} %s/%s dispatched" "$current" "$count"
-            if (( failed > 0 )); then
-                printf " (${C_ERROR}%s failed${C_RESET})" "$failed"
-            fi
-            printf "\r"
+        # Update line EVERY iteration (dots animate, progress updates live)
+        printf "\r  ${C_DIM}Dispatching onetry commands${C_DIM}%-3s${C_RESET}  ${C_INFO}Progress:${C_RESET} %s/%s dispatched" "${dots_pattern[$dots_cycle]}" "$current" "$count"
+        if (( failed > 0 )); then
+            printf " ${C_ERROR}(%s failed)${C_RESET}" "$failed"
         fi
     done
 
@@ -102,6 +103,9 @@ onetry_addresses() {
             printf "    ${C_SUCCESS}✓${C_RESET} %s\n" "$addr"
 
             # Auto-confirm connected addresses
+            if ! db_is_in_confirmed "$addr"; then
+                echo "$addr" >> "/tmp/cjdh_run_new_confirmed.$$" 2>/dev/null
+            fi
             db_upsert_confirmed "$addr"
             db_upsert_master "$addr" "onetry_connected"
         done < "$new_connections"
@@ -133,11 +137,61 @@ onetry_all_master() {
     status_info "Master list contains $master_count addresses"
     echo
 
+    # Capture connected peers at START
+    local start_peers="/tmp/cjdh_onetry_start_peers.$$"
+    bash -c "$CLI getpeerinfo" 2>/dev/null \
+        | jq -r '.[] | select(.network=="cjdns") | .addr' 2>/dev/null \
+        | while IFS= read -r raw; do
+            canon_host "$(cjdns_host_from_maybe_bracketed "$raw")"
+        done | sort -u > "$start_peers" 2>/dev/null || true
+
+    local start_count=0
+    [[ -f "$start_peers" ]] && start_count=$(wc -l < "$start_peers" 2>/dev/null || echo 0)
+
+    printf "  ${C_BOLD}CJDNS Bitcoin peers connected:${C_RESET} %s\n" "$start_count"
+    if (( start_count > 0 )); then
+        while IFS= read -r addr; do
+            [[ -n "$addr" ]] || continue
+            printf "    %s\n" "$addr"
+        done < "$start_peers"
+    fi
+    echo
+
     # Get all addresses from master table
     local addresses
     mapfile -t addresses < <(db_get_all_master)
 
     onetry_addresses "${addresses[@]}"
+
+    # Capture connected peers at END
+    local end_peers="/tmp/cjdh_onetry_end_peers.$$"
+    bash -c "$CLI getpeerinfo" 2>/dev/null \
+        | jq -r '.[] | select(.network=="cjdns") | .addr' 2>/dev/null \
+        | while IFS= read -r raw; do
+            canon_host "$(cjdns_host_from_maybe_bracketed "$raw")"
+        done | sort -u > "$end_peers" 2>/dev/null || true
+
+    local end_count=0
+    [[ -f "$end_peers" ]] && end_count=$(wc -l < "$end_peers" 2>/dev/null || echo 0)
+
+    # Show summary
+    echo
+    print_section "Connection Summary"
+    printf "  ${C_BOLD}CJDNS Bitcoin peers:${C_RESET}\n"
+    printf "    At start:  %s connected\n" "$start_count"
+    printf "    At end:    %s connected\n" "$end_count"
+
+    if (( end_count > 0 )); then
+        echo
+        printf "  ${C_SUCCESS}Connected now:${C_RESET}\n"
+        while IFS= read -r addr; do
+            [[ -n "$addr" ]] || continue
+            printf "    ${C_SUCCESS}✓${C_RESET} %s\n" "$addr"
+        done < "$end_peers"
+    fi
+
+    # Cleanup
+    rm -f "$start_peers" "$end_peers"
 }
 
 onetry_all_confirmed() {
@@ -154,11 +208,61 @@ onetry_all_confirmed() {
     status_info "Confirmed list contains $confirmed_count addresses (known Bitcoin nodes)"
     echo
 
+    # Capture connected peers at START
+    local start_peers="/tmp/cjdh_onetry_start_peers.$$"
+    bash -c "$CLI getpeerinfo" 2>/dev/null \
+        | jq -r '.[] | select(.network=="cjdns") | .addr' 2>/dev/null \
+        | while IFS= read -r raw; do
+            canon_host "$(cjdns_host_from_maybe_bracketed "$raw")"
+        done | sort -u > "$start_peers" 2>/dev/null || true
+
+    local start_count=0
+    [[ -f "$start_peers" ]] && start_count=$(wc -l < "$start_peers" 2>/dev/null || echo 0)
+
+    printf "  ${C_BOLD}CJDNS Bitcoin peers connected:${C_RESET} %s\n" "$start_count"
+    if (( start_count > 0 )); then
+        while IFS= read -r addr; do
+            [[ -n "$addr" ]] || continue
+            printf "    %s\n" "$addr"
+        done < "$start_peers"
+    fi
+    echo
+
     # Get all addresses from confirmed table
     local addresses
     mapfile -t addresses < <(db_get_all_confirmed)
 
     onetry_addresses "${addresses[@]}"
+
+    # Capture connected peers at END
+    local end_peers="/tmp/cjdh_onetry_end_peers.$$"
+    bash -c "$CLI getpeerinfo" 2>/dev/null \
+        | jq -r '.[] | select(.network=="cjdns") | .addr' 2>/dev/null \
+        | while IFS= read -r raw; do
+            canon_host "$(cjdns_host_from_maybe_bracketed "$raw")"
+        done | sort -u > "$end_peers" 2>/dev/null || true
+
+    local end_count=0
+    [[ -f "$end_peers" ]] && end_count=$(wc -l < "$end_peers" 2>/dev/null || echo 0)
+
+    # Show summary
+    echo
+    print_section "Connection Summary"
+    printf "  ${C_BOLD}CJDNS Bitcoin peers:${C_RESET}\n"
+    printf "    At start:  %s connected\n" "$start_count"
+    printf "    At end:    %s connected\n" "$end_count"
+
+    if (( end_count > 0 )); then
+        echo
+        printf "  ${C_SUCCESS}Connected now:${C_RESET}\n"
+        while IFS= read -r addr; do
+            [[ -n "$addr" ]] || continue
+            printf "    ${C_SUCCESS}✓${C_RESET} %s\n" "$addr"
+        done < "$end_peers"
+    fi
+
+    # Cleanup
+    rm -f "$start_peers" "$end_peers"
 }
 
 # ============================================================================

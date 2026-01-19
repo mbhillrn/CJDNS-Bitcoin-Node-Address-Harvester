@@ -2,9 +2,7 @@
 
 Code modules used by the CJDNS Bitcoin Core harvester.
 
-## Version 5 (Current)
-
-All v5 modules are in `lib/v5/`:
+All modules are in `lib/v5/`:
 
 - **ui.sh** - UI formatting, colors, progress indicators, box drawing
 - **db.sh** - SQLite database operations (master/confirmed lists)
@@ -15,10 +13,6 @@ All v5 modules are in `lib/v5/`:
 - **frontier.sh** - Frontier expansion (getPeerInfo → getPeers → key2ip6)
 - **remote.sh** - Remote host SSH configuration and file upload
 - **utils.sh** - Helper functions (canon_host for IPv6 normalization)
-
-## Version 4 (Legacy)
-
-Old v4 code is in `lib/harvest/` - kept for reference but not actively used.
 
 ---
 
