@@ -98,7 +98,7 @@ configure_remote_hosts() {
 
         if test_ssh_keys "$host" "$user"; then
             show_progress_done
-            status_ok "SSH keys already configured!"
+            status_ok "Automatic login already configured!"
 
             # Add to arrays
             REMOTE_HOSTS+=("$host")
@@ -108,61 +108,36 @@ configure_remote_hosts() {
         else
             show_progress_fail
             echo
-
-            # Offer to set up SSH keys
-            echo "SSH keys not configured for ${user}@${host}"
-            echo
-            echo "Would you like to set up SSH key authentication now?"
-            echo "You'll be prompted for your password ONCE to copy the key."
+            echo "  Setting up automatic login for ${user}@${host}"
+            echo "  ${C_DIM}(This is safe - just adding an SSH key for passwordless login)${C_RESET}"
             echo
 
-            local setup_keys
-            while true; do
-                read -r -p "Set up SSH keys now? [y/N]: " setup_keys
-                setup_keys="${setup_keys,,}"  # lowercase
+            # Automatically run ssh-copy-id (no asking)
+            if ssh-copy-id -o ConnectTimeout=10 "${user}@${host}" 2>&1; then
+                echo
+                status_ok "Automatic login configured!"
+                echo
 
-                if [[ "$setup_keys" == "y" || "$setup_keys" == "yes" ]]; then
-                    echo
-                    echo "${C_BOLD}Running: ssh-copy-id ${user}@${host}${C_RESET}"
-                    echo "Enter your password when prompted:"
-                    echo
+                # Test again
+                printf "  "
+                show_progress "Verifying connection"
+                if test_ssh_keys "$host" "$user"; then
+                    show_progress_done
 
-                    # Run ssh-copy-id (interactive, user types password)
-                    if ssh-copy-id -o ConnectTimeout=10 "${user}@${host}"; then
-                        echo
-                        status_ok "SSH keys copied successfully"
-                        echo
+                    # Add to arrays
+                    REMOTE_HOSTS+=("$host")
+                    REMOTE_USERS+=("$user")
 
-                        # Test again
-                        printf "  "
-                        show_progress "Re-testing SSH key authentication"
-                        if test_ssh_keys "$host" "$user"; then
-                            show_progress_done
-                            status_ok "SSH keys working!"
-
-                            # Add to arrays
-                            REMOTE_HOSTS+=("$host")
-                            REMOTE_USERS+=("$user")
-
-                            host_num=$((host_num + 1))
-                            break
-                        else
-                            show_progress_fail
-                            status_error "SSH keys still not working - host not added"
-                            break
-                        fi
-                    else
-                        echo
-                        status_error "ssh-copy-id failed - host not added"
-                        break
-                    fi
-                elif [[ "$setup_keys" == "n" || "$setup_keys" == "no" || -z "$setup_keys" ]]; then
-                    status_warn "Skipping this host (SSH keys required)"
-                    break
+                    host_num=$((host_num + 1))
                 else
-                    printf "${C_ERROR}Invalid response. Please answer 'y' or 'n'.${C_RESET}\n"
+                    show_progress_fail
+                    status_error "Connection test failed - host not added"
                 fi
-            done
+            else
+                echo
+                status_error "Setup failed - host not added"
+                echo "  ${C_DIM}Make sure you entered the correct password${C_RESET}"
+            fi
         fi
 
         echo
