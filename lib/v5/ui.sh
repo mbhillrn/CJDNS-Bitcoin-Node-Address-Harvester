@@ -29,20 +29,28 @@ C_PENDING='\033[38;5;179m'      # Calm yellow (pending)
 C_IN='\033[38;5;75m'            # Light blue (inbound)
 C_OUT='\033[38;5;205m'          # Pink (outbound)
 
+# Bandwidth indicators
+C_DOWNLOAD='\033[38;5;117m'     # Light blue (download)
+C_UPLOAD='\033[38;5;218m'       # Light pink (upload)
+
 # ============================================================================
 # Box Drawing Functions
 # ============================================================================
 print_box() {
     local title="$1"
     local width=70
-    local padding=$(( width - ${#title} ))
+    local title_len=${#title}
+    local padding=$(( width - title_len - 2 ))  # -2 for the spaces around title
+
     printf "\n${C_HEADER}"
     printf '╔'
-    printf '═%.0s' $(seq 1 $width)
+    printf '═%.0s' $(seq 1 $((width + 2)))
     printf '╗\n'
-    printf "║ %s%*s ║\n" "$title" "$padding" ""
+    printf '║ %s' "$title"
+    printf ' %.0s' $(seq 1 $padding)
+    printf ' ║\n'
     printf '╚'
-    printf '═%.0s' $(seq 1 $width)
+    printf '═%.0s' $(seq 1 $((width + 2)))
     printf '╝\n'
     printf "${C_RESET}\n"
 }

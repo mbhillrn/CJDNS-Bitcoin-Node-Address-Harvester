@@ -25,13 +25,17 @@ harvest_nodestore() {
     local all_new=()
     local all_existing=()
 
-    printf "  ${C_DIM}Scanning pages:${C_RESET} "
+    printf "  ${C_DIM}Scanning pages"
+    local dots=0
 
     while true; do
         local tmpjson="/tmp/cjdh_nodestore_p${page}.json"
 
-        # Show progress
-        printf "${C_INFO}%s${C_RESET} " "$page"
+        # Animate dots
+        dots=$(( (dots + 1) % 4 ))
+        local dot_str=""
+        for ((i=0; i<dots; i++)); do dot_str="${dot_str}."; done
+        printf "\r  ${C_DIM}Scanning pages%-3s${C_RESET} ${C_INFO}Page: %s${C_RESET}" "$dot_str" "$page"
 
         # Fetch page
         if ! cjdnstool -a "$CJDNS_ADMIN_ADDR" -p "$CJDNS_ADMIN_PORT" -P NONE cexec NodeStore_dumpTable --page="$page" >"$tmpjson" 2>/dev/null; then
@@ -57,6 +61,7 @@ harvest_nodestore() {
             # Check if new
             if db_check_new "$host"; then
                 echo "$host" >> "/tmp/cjdh_harvest_new.$$"
+                echo "$host" >> "/tmp/cjdh_all_new.$$"  # Track for onetry
             else
                 echo "$host" >> "/tmp/cjdh_harvest_existing.$$"
             fi
@@ -69,7 +74,8 @@ harvest_nodestore() {
         page=$((page + 1))
     done
 
-    echo  # Newline after page numbers
+    printf "\r  ${C_DIM}Scanning pages... ${C_SUCCESS}done${C_RESET} (scanned %s pages)\n" "$page"
+    echo
 
     # Read accumulated results
     if [[ -f "/tmp/cjdh_harvest_new.$$" ]]; then
@@ -246,6 +252,7 @@ harvest_frontier() {
             new=$((new + 1))
             db_upsert_master "$addr" "frontier"
             echo "$addr" >> "/tmp/cjdh_frontier_new.$$"
+            echo "$addr" >> "/tmp/cjdh_all_new.$$"  # Track for onetry
         else
             existing=$((existing + 1))
         fi
@@ -263,7 +270,10 @@ harvest_frontier() {
     echo
     print_divider
     printf "${C_BOLD}Frontier Summary:${C_RESET}\n"
-    printf "  Peer keys found:  %s\n" "$(grep -c 'keys=' "$frontier_log" 2>/dev/null | head -n1 || echo "?")"
+    local keys_count
+    keys_count="$(grep 'keys=' "$frontier_log" 2>/dev/null | sed -n 's/.*keys=\([0-9]\+\).*/\1/p' | head -n1)"
+    [[ -z "$keys_count" ]] && keys_count="?"
+    printf "  Peer keys found:  %s\n" "$keys_count"
     printf "  Valid addresses:  %s\n" "$total"
     if (( new > 0 )); then
         printf "  ${C_NEW}NEW addresses:    %s${C_RESET}\n" "$new"
@@ -301,8 +311,8 @@ harvest_addrman() {
 
             if db_check_new "$addr"; then
                 db_upsert_master "$addr" "addrman"
-                db_upsert_confirmed "$addr"
                 echo "$addr" >> "$new_file"
+                echo "$addr" >> "/tmp/cjdh_all_new.$$"  # Track for onetry
             else
                 db_upsert_master "$addr" "addrman"
                 echo "$addr" >> "$existing_file"
@@ -361,10 +371,10 @@ harvest_connected_peers() {
         # Determine direction
         local direction
         if [[ "$is_in" == "true" ]]; then
-            direction="${C_IN}IN ${C_RESET}"
+            direction="IN "
             inbound=$((inbound + 1))
         else
-            direction="${C_OUT}OUT${C_RESET}"
+            direction="OUT"
             outbound=$((outbound + 1))
         fi
 
@@ -373,7 +383,12 @@ harvest_connected_peers() {
             unique_addrs+=("$host")
         fi
 
-        printf "    %s  %s\n" "$direction" "$host"
+        # Print with proper color codes
+        if [[ "$direction" == "IN " ]]; then
+            printf "    ${C_IN}%s${C_RESET}  %s\n" "$direction" "$host"
+        else
+            printf "    ${C_OUT}%s${C_RESET}  %s\n" "$direction" "$host"
+        fi
 
         db_upsert_master "$host" "connected_now"
         db_upsert_confirmed "$host"  # Auto-confirm connected peers

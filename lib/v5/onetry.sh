@@ -165,37 +165,29 @@ onetry_all_confirmed() {
 # Onetry only NEW addresses (for harvester mode)
 # ============================================================================
 onetry_new_addresses() {
-    print_section "Testing Unconfirmed Addresses"
+    print_section "Testing New Addresses"
 
-    # Get all master addresses and check which ones have never been confirmed
-    local all_master new_addresses=()
+    # Get addresses that were discovered this run (written to temp file during harvest)
+    local new_addresses=()
 
-    while IFS= read -r addr; do
-        [[ -n "$addr" ]] || continue
-
-        # Check if NOT in confirmed table
-        local in_confirmed
-        in_confirmed="$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM confirmed WHERE host='$addr';" 2>/dev/null || echo "0")"
-        if (( in_confirmed == 0 )); then
-            new_addresses+=("$addr")
-        fi
-    done < <(db_get_all_master)
+    if [[ -f "/tmp/cjdh_all_new.$$" ]]; then
+        mapfile -t new_addresses < <(sort -u "/tmp/cjdh_all_new.$$")
+        rm -f "/tmp/cjdh_all_new.$$"
+    fi
 
     local count=${#new_addresses[@]}
 
     if (( count == 0 )); then
         echo
-        status_info "No unconfirmed addresses to test (all have been tried before)"
+        status_info "No new addresses discovered this run (all addresses already known)"
         return 0
     fi
 
     echo
-    printf "${C_BOLD}Testing addresses that have never successfully connected:${C_RESET}\n"
-    printf "  Total discovered:  %s addresses\n" "$(db_count_master)"
-    printf "  Already confirmed: %s addresses\n" "$(db_count_confirmed)"
-    printf "  ${C_INFO}To test now:       %s addresses${C_RESET}\n\n" "$count"
+    printf "${C_BOLD}Testing newly discovered addresses from this harvest:${C_RESET}\n"
+    printf "  ${C_INFO}New this run:      %s addresses${C_RESET}\n\n" "$count"
 
-    printf "${C_DIM}Note: This tries connecting to each address via 'addnode onetry'${C_RESET}\n"
+    printf "${C_DIM}Note: These addresses were just discovered and not yet tested.${C_RESET}\n"
     printf "${C_DIM}Successful connections will be auto-confirmed.${C_RESET}\n"
     echo
 

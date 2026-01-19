@@ -70,7 +70,7 @@ display_cjdns_router() {
             local bw_in="${recv}kb/s"
             local bw_out="${send}kb/s"
 
-            printf "    %-46s %s  ${C_INFO}↓%-8s ↑%-8s${C_RESET}  ${C_MUTED}LOS:%-6s OOR:%-4s${C_RESET}\n" \
+            printf "    %-46s %s  ${C_DOWNLOAD}↓%-8s${C_RESET} ${C_UPLOAD}↑%-8s${C_RESET}  ${C_MUTED}LOS:%-6s OOR:%-4s${C_RESET}\n" \
                 "$display_addr" "$direction" "$bw_in" "$bw_out" "$los" "$oor"
         done
     fi
