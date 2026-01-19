@@ -31,26 +31,15 @@ show_main_menu() {
     clear
     print_box "CJDNS ADDRESS HARVESTER v5"
 
-    cat <<EOF
-
-${C_BOLD}Choose operation:${C_RESET}
-
-  ${C_SUCCESS}1)${C_RESET} Run harvester (continuous discovery)
-     └─ Harvest nodestore → frontier → onetry new addresses → repeat
-
-  ${C_INFO}2)${C_RESET} Onetry master list
-     └─ Try connecting to all discovered addresses
-
-  ${C_WARNING}3)${C_RESET} Onetry confirmed list
-     └─ Retry addresses with known Bitcoin nodes
-
-  ${C_ERROR}0)${C_RESET} Exit
-
-EOF
-
-    local choice
-    read -r -p "Choice [1-3, 0=exit]: " choice
-    echo "$choice"
+    echo
+    printf "${C_BOLD}Choose operation:${C_RESET}\n\n"
+    printf "  ${C_SUCCESS}1)${C_RESET} Run harvester (continuous discovery)\n"
+    printf "     └─ Harvest nodestore → frontier → onetry new addresses → repeat\n\n"
+    printf "  ${C_INFO}2)${C_RESET} Onetry master list\n"
+    printf "     └─ Try connecting to all discovered addresses\n\n"
+    printf "  ${C_WARNING}3)${C_RESET} Onetry confirmed list\n"
+    printf "     └─ Retry addresses with known Bitcoin nodes\n\n"
+    printf "  ${C_ERROR}0)${C_RESET} Exit\n\n"
 }
 
 # ============================================================================
@@ -181,7 +170,10 @@ main() {
 
     # Main menu loop
     while true; do
-        choice="$(show_main_menu)"
+        show_main_menu
+
+        local choice
+        read -r -p "Choice [1-3, 0=exit]: " choice
 
         case "$choice" in
             1)
