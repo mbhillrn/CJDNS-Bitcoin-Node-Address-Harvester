@@ -69,14 +69,23 @@ run_harvester_mode() {
 
     # Ask about remote nodestore
     echo
-    if prompt_yn "Harvest remote nodestore (SSH)?"; then
+    if prompt_yn "Harvest remote hosts via SSH?"; then
         harvest_remote="yes"
         echo
-        status_info "Note: SSH key-based authentication required (passwordless login)"
+        status_info "You can use SSH keys (recommended) or password authentication"
+        status_info "Remote harvesting includes: NodeStore + Frontier expansion"
         echo
-        read -r -p "Remote host(s) (comma-separated): " REMOTE_HOSTS
-        read -r -p "SSH username (same for all): " REMOTE_USER
-        export REMOTE_HOSTS REMOTE_USER HARVEST_REMOTE=yes
+
+        # Configure remote hosts
+        source "${SCRIPT_DIR}/lib/v5/remote.sh"
+        configure_remote_hosts
+
+        if [[ "${#REMOTE_HOSTS[@]}" -eq 0 ]]; then
+            status_warn "No remote hosts configured, skipping remote harvest"
+            harvest_remote="no"
+        else
+            export HARVEST_REMOTE=yes
+        fi
     fi
 
     echo
@@ -105,6 +114,7 @@ run_harvester_mode() {
         harvest_nodestore
         harvest_remote_nodestore
         harvest_frontier
+        harvest_remote_frontier
         harvest_addrman
         harvest_connected_peers
 

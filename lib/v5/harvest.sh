@@ -117,42 +117,49 @@ harvest_nodestore() {
 # ============================================================================
 harvest_remote_nodestore() {
     [[ "${HARVEST_REMOTE:-no}" == "yes" ]] || return 0
+    [[ "${#REMOTE_HOSTS[@]}" -gt 0 ]] || return 0
 
-    local remote_user="$REMOTE_USER"
-    local remote_hosts_raw="$REMOTE_HOSTS"
+    for idx in "${!REMOTE_HOSTS[@]}"; do
+        local rhost="${REMOTE_HOSTS[$idx]}"
+        local ruser="${REMOTE_USERS[$idx]}"
 
-    # Parse comma-separated hosts
-    IFS=',' read -ra hosts <<< "$remote_hosts_raw"
-
-    for rhost in "${hosts[@]}"; do
-        rhost="${rhost// /}"  # trim spaces
-        [[ -n "$rhost" ]] || continue
-
-        print_subsection "Remote NodeStore: ${remote_user}@${rhost}"
+        print_subsection "Remote NodeStore: ${ruser}@${rhost}"
 
         local page=0
         local total_seen=0 total_new=0 total_existing=0
         local all_new=()
         local all_existing=()
+        local error_msg=""
+
+        # Animated progress indicator
+        printf "  ${C_DIM}Scanning pages"
+        local dots=0
 
         while true; do
-            local tmpjson="/tmp/cjdh_remote_${rhost}_p${page}.json"
+            # Update progress animation
+            dots=$(( (dots + 1) % 4 ))
+            local dot_str=""
+            for ((i=0; i<dots; i++)); do dot_str="${dot_str}."; done
+            printf "\r  ${C_DIM}Scanning pages%-3s${C_RESET} ${C_INFO}Page: %s${C_RESET}" "$dot_str" "$page"
 
-            # Fetch remote page via SSH (with better error handling)
-            if ! ssh -o ConnectTimeout=5 \
-                     -o StrictHostKeyChecking=accept-new \
-                     -o BatchMode=yes \
-                     -o PasswordAuthentication=no \
-                     "${remote_user}@${rhost}" \
-                "cjdnstool -a 127.0.0.1 -p 11234 -P NONE cexec NodeStore_dumpTable --page=$page" >"$tmpjson" 2>/dev/null; then
-                rm -f "$tmpjson"
+            local tmpjson="/tmp/cjdh_remote_${rhost}_p${page}.json"
+            local tmperr="/tmp/cjdh_remote_${rhost}_err.txt"
+
+            # Fetch remote page via SSH
+            local ssh_output
+            if ! ssh_output="$(exec_ssh_command "$idx" "cjdnstool -a 127.0.0.1 -p 11234 -P NONE cexec NodeStore_dumpTable --page=$page" 2>"$tmperr")"; then
+                error_msg="$(cat "$tmperr" 2>/dev/null || echo "SSH connection failed")"
+                rm -f "$tmpjson" "$tmperr"
                 break
             fi
 
+            echo "$ssh_output" > "$tmpjson"
+
+            # Check if we got valid JSON
             local rt_len
             rt_len="$(jq '.routingTable | length' "$tmpjson" 2>/dev/null || echo 0)"
             if [[ ! "$rt_len" =~ ^[0-9]+$ ]] || (( rt_len == 0 )); then
-                rm -f "$tmpjson"
+                rm -f "$tmpjson" "$tmperr"
                 break
             fi
 
@@ -164,28 +171,38 @@ harvest_remote_nodestore() {
                 [[ -n "$host" ]] || continue
 
                 if db_check_new "$host"; then
-                    echo "$host" >> "/tmp/cjdh_remote_new.$$"
+                    echo "$host" >> "/tmp/cjdh_remote_new_${idx}.$$"
+                    echo "$host" >> "/tmp/cjdh_all_new.$$"  # Track for onetry
                 else
-                    echo "$host" >> "/tmp/cjdh_remote_existing.$$"
+                    echo "$host" >> "/tmp/cjdh_remote_existing_${idx}.$$"
                 fi
 
-                db_upsert_master "$host" "remote_nodestore"
+                db_upsert_master "$host" "remote_nodestore:$rhost"
             done
 
-            rm -f "$tmpjson"
+            rm -f "$tmpjson" "$tmperr"
             page=$((page + 1))
         done
 
-        # Read results
-        if [[ -f "/tmp/cjdh_remote_new.$$" ]]; then
-            mapfile -t all_new < "/tmp/cjdh_remote_new.$$"
-            total_new=${#all_new[@]}
-            rm -f "/tmp/cjdh_remote_new.$$"
+        printf "\r  ${C_DIM}Scanning pages... ${C_SUCCESS}done${C_RESET} (scanned %s pages)\n" "$page"
+
+        # Display errors if any
+        if [[ -n "$error_msg" && "$page" -eq 0 ]]; then
+            echo
+            printf "  ${C_ERROR}${C_BOLD}ERROR:${C_RESET} ${C_ERROR}%s${C_RESET}\n" "$error_msg"
+            echo
         fi
-        if [[ -f "/tmp/cjdh_remote_existing.$$" ]]; then
-            mapfile -t all_existing < "/tmp/cjdh_remote_existing.$$"
+
+        # Read results
+        if [[ -f "/tmp/cjdh_remote_new_${idx}.$$" ]]; then
+            mapfile -t all_new < "/tmp/cjdh_remote_new_${idx}.$$"
+            total_new=${#all_new[@]}
+            rm -f "/tmp/cjdh_remote_new_${idx}.$$"
+        fi
+        if [[ -f "/tmp/cjdh_remote_existing_${idx}.$$" ]]; then
+            mapfile -t all_existing < "/tmp/cjdh_remote_existing_${idx}.$$"
             total_existing=${#all_existing[@]}
-            rm -f "/tmp/cjdh_remote_existing.$$"
+            rm -f "/tmp/cjdh_remote_existing_${idx}.$$"
         fi
         total_seen=$((total_new + total_existing))
 
@@ -199,6 +216,122 @@ harvest_remote_nodestore() {
         fi
 
         print_harvest_summary "Remote ($rhost)" "$page" "$total_seen" "$total_new" "$total_existing"
+    done
+}
+
+# ============================================================================
+# Remote Frontier Expansion (SSH)
+# ============================================================================
+harvest_remote_frontier() {
+    [[ "${HARVEST_REMOTE:-no}" == "yes" ]] || return 0
+    [[ "${#REMOTE_HOSTS[@]}" -gt 0 ]] || return 0
+
+    for idx in "${!REMOTE_HOSTS[@]}"; do
+        local rhost="${REMOTE_HOSTS[$idx]}"
+        local ruser="${REMOTE_USERS[$idx]}"
+
+        print_subsection "Remote Frontier: ${ruser}@${rhost}"
+
+        # Check if frontier expansion is available on remote
+        printf "  ${C_DIM}Testing frontier capability...${C_RESET} "
+        local test_output
+        if ! test_output="$(exec_ssh_command "$idx" "cjdnstool -a 127.0.0.1 -p 11234 -P NONE cexec ReachabilityCollector_getPeerInfo --page=0" 2>&1)"; then
+            printf "${C_WARN}not available${C_RESET}\n"
+            echo
+            printf "  ${C_DIM}Note: ReachabilityCollector not available on %s${C_RESET}\n" "$rhost"
+            echo
+            continue
+        fi
+        printf "${C_SUCCESS}available${C_RESET}\n"
+
+        # Run frontier expansion on remote host
+        printf "  ${C_DIM}Running remote frontier expansion...${C_RESET} "
+
+        local frontier_out="/tmp/cjdh_remote_frontier_${idx}.$$.txt"
+        local frontier_log="/tmp/cjdh_remote_frontier_${idx}.$$.log"
+        local error_msg=""
+
+        # Upload frontier script to remote host
+        local remote_script="/tmp/cjdh_frontier_expand.sh"
+        if ! exec_ssh_command "$idx" "cat > $remote_script" < "${SCRIPT_DIR}/lib/v5/frontier.sh" 2>/dev/null; then
+            printf "${C_ERROR}failed${C_RESET} (upload error)\n"
+            echo
+            continue
+        fi
+
+        # Execute frontier expansion remotely
+        local frontier_cmd="bash $remote_script 127.0.0.1 11234 2000 2>&1"
+        local frontier_result
+        if ! frontier_result="$(exec_ssh_command "$idx" "$frontier_cmd" 2>&1)"; then
+            printf "${C_ERROR}failed${C_RESET}\n"
+            error_msg="Remote frontier execution failed"
+            echo
+            printf "  ${C_ERROR}${C_BOLD}ERROR:${C_RESET} ${C_ERROR}%s${C_RESET}\n" "$error_msg"
+            echo
+            continue
+        fi
+
+        printf "${C_SUCCESS}done${C_RESET}\n"
+        echo
+
+        # Parse frontier results (addresses on stdout, progress on stderr)
+        echo "$frontier_result" > "$frontier_out"
+
+        # Extract addresses and progress info
+        local total_new=0 total_existing=0 keys_count=0
+        local all_new=()
+
+        # Show progress from output
+        while IFS= read -r line; do
+            if [[ "$line" == fc[0-9a-f][0-9a-f]:* ]]; then
+                # It's an address
+                local host
+                host="$(canon_host "$line")"
+                [[ -n "$host" ]] || continue
+
+                if db_check_new "$host"; then
+                    all_new+=("$host")
+                    echo "$host" >> "/tmp/cjdh_all_new.$$"  # Track for onetry
+                    total_new=$((total_new + 1))
+                else
+                    total_existing=$((total_existing + 1))
+                fi
+
+                db_upsert_master "$host" "remote_frontier:$rhost"
+            elif [[ "$line" == *"paths="* ]]; then
+                printf "  ${C_INFO}%s${C_RESET}\n" "$line"
+            elif [[ "$line" == *"keys="* ]]; then
+                keys_count="$(echo "$line" | sed -n 's/.*keys=\([0-9]\+\).*/\1/p')"
+                printf "  ${C_BOLD}${C_SUCCESS}Keys found: %s${C_RESET}\n" "$keys_count"
+            elif [[ "$line" == *"getPeers"* ]] || [[ "$line" == *"key2ip6"* ]]; then
+                printf "  ${C_MUTED}%s${C_RESET}\n" "$line"
+            fi
+        done < "$frontier_out"
+
+        # Display NEW addresses
+        if (( total_new > 0 )); then
+            echo
+            printf "${C_NEW}${C_BOLD}NEW from remote frontier (%s):${C_RESET}\n" "$total_new"
+            for addr in "${all_new[@]}"; do
+                print_address_new "$addr"
+            done
+        fi
+
+        # Summary
+        local total_seen=$((total_new + total_existing))
+        echo
+        print_separator
+        printf "Remote Frontier ($rhost) Summary:\n"
+        printf "  Peer keys found:  %s\n" "${keys_count:-0}"
+        printf "  Valid addresses:  %s\n" "$total_seen"
+        printf "  NEW addresses:    %s\n" "$total_new"
+        printf "  Already known:    %s\n" "$total_existing"
+        [[ "$total_seen" -lt "${keys_count:-0}" ]] && printf "\n  ${C_DIM}Note: Some peer keys don't convert to valid fc00:: addresses${C_RESET}\n"
+        print_separator
+
+        # Cleanup
+        rm -f "$frontier_out" "$frontier_log"
+        exec_ssh_command "$idx" "rm -f $remote_script" >/dev/null 2>&1
     done
 }
 

@@ -67,8 +67,8 @@ onetry_addresses() {
     # Wait for connections to settle
     if (( dispatched > 0 )); then
         echo
-        show_progress "Waiting 5 seconds for connections to settle"
-        sleep 5
+        show_progress "Waiting 10 seconds for connections to settle"
+        sleep 10
         show_progress_done
     fi
 
