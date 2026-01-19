@@ -60,8 +60,41 @@ update_database_from_repo() {
     printf "  ${C_INFO}Checking GitHub repo for updated seed database...${C_RESET}\n"
     echo
 
-    # Download latest seeddb.db from GitHub
     local repo_url="https://raw.githubusercontent.com/mbhillrn/CJDNS-Bitcoin-Node-Address-Harvester/main/lib/seeddb.db"
+    local local_seeddb="${BASE_DIR}/lib/seeddb.db"
+
+    # Check if remote file is newer than local
+    local remote_last_modified
+    remote_last_modified=$(curl -sI "$repo_url" | grep -i '^last-modified:' | cut -d' ' -f2- | tr -d '\r')
+
+    if [[ -z "$remote_last_modified" ]]; then
+        echo
+        printf "  ${C_WARNING}⚠ Could not check remote file timestamp${C_RESET}\n"
+        printf "  Proceeding with download anyway...\n"
+        echo
+    elif [[ -f "$local_seeddb" ]]; then
+        # Convert remote timestamp to epoch seconds
+        local remote_epoch
+        remote_epoch=$(date -d "$remote_last_modified" +%s 2>/dev/null || echo 0)
+
+        # Get local file modification time
+        local local_epoch
+        local_epoch=$(stat -c %Y "$local_seeddb" 2>/dev/null || echo 0)
+
+        if (( remote_epoch > 0 && local_epoch > 0 && remote_epoch <= local_epoch )); then
+            echo
+            printf "  ${C_SUCCESS}✓ Local seeddb.db is already up to date${C_RESET}\n"
+            printf "  Remote file has not been modified since your last update.\n"
+            echo
+            printf "  ${C_INFO}Checking for new addresses anyway...${C_RESET}\n"
+        else
+            echo
+            printf "  ${C_INFO}📥 Newer version available, downloading...${C_RESET}\n"
+        fi
+        echo
+    fi
+
+    # Download latest seeddb.db from GitHub
     local temp_seeddb="/tmp/seeddb_download_$$.db"
 
     if ! curl -sf -o "$temp_seeddb" "$repo_url" 2>/dev/null; then
@@ -98,7 +131,7 @@ update_database_from_repo() {
         printf "  No new confirmed Bitcoin node addresses found in repo.\n"
 
         # Still update local seeddb.db
-        cp "$temp_seeddb" "${BASE_DIR}/lib/seeddb.db"
+        cp "$temp_seeddb" "$local_seeddb"
         echo
         printf "  ${C_INFO}ℹ Local seeddb.db refreshed from repo${C_RESET}\n"
 
@@ -124,7 +157,7 @@ update_database_from_repo() {
         printf "  ${C_MUTED}Update cancelled${C_RESET}\n"
 
         # Still update local seeddb.db
-        cp "$temp_seeddb" "${BASE_DIR}/lib/seeddb.db"
+        cp "$temp_seeddb" "$local_seeddb"
         echo
         printf "  ${C_INFO}ℹ Local seeddb.db refreshed from repo${C_RESET}\n"
 
@@ -139,7 +172,7 @@ update_database_from_repo() {
     timestamp="$(date +%Y-%m-%d_%H-%M-%S)"
     local backup_dir="${BASE_DIR}/bak"
     mkdir -p "$backup_dir"
-    local backup_file="${backup_dir}/state_${timestamp}_pre-update.db"
+    local backup_file="${backup_dir}/state_${timestamp}.db"
 
     if [[ -f "$DB_PATH" ]]; then
         cp "$DB_PATH" "$backup_file"
@@ -156,7 +189,7 @@ update_database_from_repo() {
     done < "$new_confirmed"
 
     # Update local seeddb.db
-    cp "$temp_seeddb" "${BASE_DIR}/lib/seeddb.db"
+    cp "$temp_seeddb" "$local_seeddb"
 
     echo
     printf "  ${C_SUCCESS}${C_BOLD}✓ Database updated successfully!${C_RESET}\n"
