@@ -6,45 +6,43 @@
 
 ## Support This Project
 
-If you find this tool useful, please consider donating:
+If you find this tool useful, support is appreciated:
 
 **Bitcoin:** `bc1qy63057zemrskq0n02avq9egce4cpuuenm5ztf5`
-
-Any amount is appreciated!
 
 ---
 
 ## What Is This?
 
-This is a tool I built over a couple months to discover Bitcoin Core nodes running on CJDNS (the mesh network using fc00:: IPv6 addresses). It works by:
+This is a tool developed to discover Bitcoin Core nodes running on CJDNS. It works by:
 
 1. Scanning your local CJDNS NodeStore for addresses
-2. Using "frontier expansion" to discover more nodes through your peers
+2. Using "frontier expansion" to discover more nodes through peers
 3. Testing each address to see if it's running Bitcoin Core
 4. Keeping track of everything in a local database
 
-I wrote this mostly as a hobby project to learn more about CJDNS and Bitcoin networking. Got a lot of help from AI to make the interface look nice and handle edge cases properly.
+This project focuses on practical discovery and tracking of Bitcoin nodes reachable over CJDNS networking. 
 
 ---
 
 ## Why Would I Want This?
 
-If you're running Bitcoin Core over CJDNS, you probably want to find other nodes to connect to. This tool automates that discovery process and maintains a database of known nodes so you don't have to manually hunt for peers.
+If you're running Bitcoin Core over CJDNS, you probably want to find other nodes to connect to as Core seems to prefer ipv4, ipv6, TOR, or i2p. This tool automates that cjdns discovery process and maintains a database of known nodes so you don't have to manually hunt and add.
 
-The included seed database (`lib/seeddb.db`) contains confirmed Bitcoin nodes and other discovered CJDNS addresses that you can optionally use as a starter database.
+The included seed database (`lib/seeddb.db`) contains confirmed Bitcoin nodes and other discovered CJDNS addresses that you can optionally use as a starter database. I'm currently updating that seedlist frequently, and there is an option within the program to update your database with newly found addresses uploaded to the repo.
 
 ---
 
 ## Quick Start
 
-**Requirements:**
+**Requirements (the program validates prereqs prior to running):**
 - Linux (tested on Ubuntu)
-- Bitcoin Core with CJDNS support
+- Bitcoin Core with CJDNS support (tested on v30)
 - CJDNS running with admin interface enabled
 - `cjdnstool` installed (`npm install -g cjdnstool`)
 - Standard tools: `jq`, `sqlite3`, `bash`
 
-**Install dependencies (Ubuntu):**
+**Install dependencies:**
 ```bash
 ./scripts/install_deps_ubuntu.sh
 ```
@@ -68,18 +66,18 @@ On first run, the script will:
 **For first-time users:** Choose option 1. This will:
 - Copy confirmed Bitcoin node addresses from `lib/seeddb.db`
 - Immediately attempt to connect to them via Bitcoin Core
-- Get you connected to known nodes right away
+- Get you connected to known nodes fastest
 
-**Why not option 4?** The complete database includes hundreds of CJDNS addresses that may never run Bitcoin nodes. This can make some operations time-consuming. Option 4 is mainly useful if you're harvesting CJDNS addresses for other purposes.
+**Why not option 4 by default?** The complete database includes hundreds of CJDNS addresses that may never run Bitcoin nodes. This can make some operations time-consuming. Option 4 is mainly useful if you're harvesting CJDNS addresses for other purposes. Who knows, you may get lucky and have had someone who just installed Core over CJDNS. 
 
 ### Main Menu Options
 
 After setup, you'll see the main menu with 9 options:
 
-1. **Run Harvester** - Discover and test new addresses (local + optional remote)
-2. **Connect to confirmed nodes** - Attempt connection to all known Bitcoin nodes
-3. **Connect to all addresses** - Exhaustive connection test (use if bored!)
-4. **Database Updater** - Check GitHub for newly confirmed nodes and add them to your database
+1. **Run Harvester** - Discover and test new addresses (local + optional remote). Can single run, or in a loop. Recommend letting the loop run for a while when getting started.
+2. **Connect to confirmed nodes** - Attempt connection to all known Bitcoin nodes from database.
+3. **Connect to all addresses** - Exhaustive connection test. Attempts the bitcoin node addresses, as well as all the other cjdns addresses in the database who were not seen with Core nodes attached. 
+4. **Database Updater** - Check project's GitHub Repo for updated confirmed nodes and add them to your database
 5. **Export database to txt** - Creates `cjdns-bitcoin-seed-list.txt`
 6. **Backup database** - Create timestamped backup in `bak/` directory
 7. **Restore from backup** - Restore database from previous backup
@@ -105,9 +103,7 @@ After setup, you'll see the main menu with 9 options:
 - **Database tracking** - Remembers all addresses and which ones have Bitcoin nodes
 
 ### Remote Harvesting (Experimental!)
-If you have other machines on your network running CJDNS, you can scan their NodeStores AND run frontier expansion on them too. The setup wizard will walk you through configuring SSH keys for automatic login.
-
-This is pretty niche (who has multiple CJDNS nodes on their LAN?) but it works great if you do!
+This feature allows scanning other CJDNS-enabled machines on your LAN via SSH. The setup wizard is simple and assists with SSH key configuration.
 
 ---
 
@@ -123,17 +119,13 @@ This is pretty niche (who has multiple CJDNS nodes on their LAN?) but it works g
 
 The database has two main tables:
 
-- **Master list** (`master.host`) - Every fc00:: address ever discovered
+- **Master list** (`master.host`) - Every fc00 address discovered
   - Includes ALL addresses found via any harvesting method
-  - Used for tracking what's been seen before
-  - Prevents re-testing already known addresses
 
-- **Confirmed list** (`confirmed.host`) - Addresses that successfully connected
+- **Confirmed list** (`confirmed.host`) - Addresses that successfully connected to a Bitcoin Core node
   - Only includes addresses running Bitcoin Core
-  - These are actual Bitcoin nodes you can connect to
-  - Used by Option 2 for quick connection attempts
 
-When the harvester runs, it only tests NEW addresses not in the master list. This prevents wasting time re-testing addresses that have already been discovered.
+When the harvester runs, it only tests NEW addresses. To test bitcoin core connectivity to the master or confirmed, use selection 2 or 3 from the main menu separately.
 
 ### Address Format
 
@@ -141,7 +133,7 @@ All CJDNS addresses in the database are stored in **full expanded IPv6 format**,
 - Full format: `fc00:0000:0000:0000:0000:0000:0000:0001`
 - Compressed format: `fc00::1` (NOT used)
 
-This prevents duplicate entries when the same address is discovered in different formats. If you manually add addresses to the database, make sure to use the full expanded format to avoid duplicates.
+This prevents duplicate entries when the same address is discovered in different formats. If you manually add addresses to the database, make sure to use the full expanded format to avoid issues.
 
 ### Seed Database Options
 
@@ -168,29 +160,21 @@ CJDNS addresses may not be as attractive to Bitcoin's addrman (address manager) 
 ### Discovery Sources
 
 1. **NodeStore** - Your local CJDNS routing table
-2. **Frontier Expansion** - Queries your direct peers for THEIR peers (2-hop discovery)
+2. **Frontier Expansion** - Queries direct peers
 3. **Bitcoin Addrman** - Addresses Bitcoin Core already knows about
-4. **Connected Peers** - Any address you're currently connected to
-5. **Remote NodeStore** - Same as #1 but on other machines (if configured)
-6. **Remote Frontier** - Same as #2 but on other machines (if configured)
+4. **Connected Peers** - Any address Core is currently connected to
+5. **Remote NodeStore** - Same as #1 but on other LAN machines (if configured)
+6. **Remote Frontier** - Same as #2 but on other LAN machines (if configured)
 
 ### Testing Process
 
-After discovering addresses, the harvester uses Bitcoin Core's `addnode <address> onetry` command to test each one. If it connects successfully, that address gets added to the confirmed list.
-
-**Important notes about onetry testing:**
-- The `onetry` command does NOT attempt to connect to nodes that Bitcoin Core is already connected to. If you're already connected to an address, it will be skipped during testing.
-- During testing, only about **1/3 to 1/2 of the confirmed list** typically connects at any given time. This is normal behavior.
-- Online nodes seem to rotate a bit - a node that didn't connect now might connect later, and vice versa.
-- The harvester maintains the confirmed list, and I'll try to keep the seed database updated with newly discovered nodes.
-
-There's a 10-second wait after testing to let connections establish, then it checks `getpeerinfo` to see what actually connected.
+Addresses are tested using Bitcoin Core's `addnode <address> onetry` command. getpeerinfo is later used to determine if a peer has been found.
 
 ---
 
 ## Configuration
 
-The harvester asks you a few questions on first run:
+The harvester detects settings, and asks you a few questions on first run:
 
 1. **Bitcoin Core location** - Usually auto-detected
 2. **CJDNS admin settings** - Usually auto-detected (127.0.0.1:11234)
@@ -198,17 +182,15 @@ The harvester asks you a few questions on first run:
 4. **Scan interval** - How many seconds between loops (default: 60)
 5. **Remote harvesting** - Do you want to scan other machines? (optional)
 
-All settings are saved in `harvest.local.conf` so you don't have to re-enter them every time.
-
 ---
 
-## Files in This Repo
+## Files
 
 ```
 harvest.v5.sh           # Main script (run this!)
 state.db                # Your active database (auto-created, gitignored)
 lib/
-  ├── seeddb.db        # Seed database with confirmed nodes
+  ├── seeddb.db        # Seed database with confirmed nodes (can be updated from main menu)
   └── v5/              # Version 5 modules
       ├── ui.sh        # Pretty colors and formatting
       ├── db.sh        # Database operations
@@ -243,7 +225,7 @@ sudo apt-get install sqlite3
 **Remote harvesting isn't working**
 - Make sure SSH is enabled on the remote machine
 - The setup wizard will walk you through configuring SSH keys
-- Test manually first: `ssh user@remotehost cjdnstool -a 127.0.0.1 -p 11234 -P NONE cexec Core_nodeInfo`
+- Can test manually with: `ssh user@remotehost cjdnstool -a 127.0.0.1 -p 11234 -P NONE cexec Core_nodeInfo`
 
 **No addresses being discovered**
 - Check that CJDNS is actually running: `cjdnstool -a 127.0.0.1 -p 11234 -P NONE cexec Core_nodeInfo`
@@ -288,40 +270,26 @@ sudo apt-get install sqlite3
 
 This is a hobby project but I'm happy to accept pull requests! Feel free to:
 
-- Report bugs
-- Suggest features
-- Fix my terrible code
-- Improve the documentation
-- **Share found Bitcoin nodes** - If you discover CJDNS Bitcoin node addresses, please post them in [GitHub Discussions](https://github.com/mbhillrn/CJDNS-Bitcoin-Node-Address-Harvester/discussions)! This helps build the community database and benefits all users.
+- Please post any questions, issues, reports, found addresses in [GitHub Discussions](https://github.com/mbhillrn/CJDNS-Bitcoin-Node-Address-Harvester/discussions)!
 
-Just open an issue or PR on GitHub.
+- Or, just open an issue or PR on GitHub.
 
 ---
 
 ## Credits
 
-Written by mbhillrn over a couple months of spare time. Got tons of help from AI for:
-- Making the interface not look like trash
-- Fixing logic bugs I couldn't figure out
-- Adding all the pretty colors and progress bars
-- Generally making it professional-looking
-
-The core idea and Bitcoin/CJDNS integration is all mine though!
+- Maintained by the project author.
 
 ---
 
 ## License
 
-MIT - Do whatever you want with this
+MIT
 
 ---
 
 ## Support Development
 
-If this tool helped you discover Bitcoin nodes or you just think it's cool:
-
 **Bitcoin:** `bc1qy63057zemrskq0n02avq9egce4cpuuenm5ztf5`
 
-I'll keep updating the database as I find more addresses. Any amount is appreciated!
-
-Thanks for using my harvester!
+I'll keep updating the database as I find more addresses.
