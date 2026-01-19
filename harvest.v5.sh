@@ -67,7 +67,213 @@ delete_database() {
         echo
         printf "  ${C_SUCCESS}✓ Database deleted${C_RESET}\n"
         echo
-        printf "  On next run, you'll be prompted to seed from confirmed list.\n"
+        read -r -p "Press Enter to set up new database..."
+        check_database_and_show_stats
+    else
+        echo
+        printf "  ${C_MUTED}Cancelled${C_RESET}\n"
+    fi
+}
+
+backup_database() {
+    print_box "BACKUP DATABASE"
+
+    if [[ ! -f "$DB_PATH" ]]; then
+        echo
+        status_error "No database found to backup"
+        return 1
+    fi
+
+    # Create backups directory if it doesn't exist
+    local backup_dir="${BASE_DIR}/bak"
+    mkdir -p "$backup_dir"
+
+    # Generate backup filename with timestamp
+    local timestamp
+    timestamp="$(date +%Y-%m-%d_%H-%M-%S)"
+    local backup_file="${backup_dir}/state_${timestamp}.db"
+
+    # Copy database to backup
+    cp "$DB_PATH" "$backup_file"
+
+    echo
+    printf "  ${C_SUCCESS}✓ Database backed up to:${C_RESET}\n"
+    printf "    %s\n" "$backup_file"
+    echo
+    printf "  ${C_BOLD}Summary:${C_RESET}\n"
+    printf "    Master:     %s addresses\n" "$(db_count_master)"
+    printf "    Confirmed:  %s addresses\n" "$(db_count_confirmed)"
+}
+
+restore_database() {
+    print_box "RESTORE DATABASE FROM BACKUP"
+
+    local backup_dir="${BASE_DIR}/bak"
+
+    if [[ ! -d "$backup_dir" ]]; then
+        echo
+        status_error "No backup directory found"
+        return 1
+    fi
+
+    # List available backups
+    local backups=()
+    mapfile -t backups < <(ls -1 "$backup_dir"/state_*.db 2>/dev/null | sort -r)
+
+    if (( ${#backups[@]} == 0 )); then
+        echo
+        status_error "No backup databases found"
+        return 1
+    fi
+
+    echo
+    printf "  ${C_BOLD}Available backups:${C_RESET}\n\n"
+
+    local idx=1
+    for backup in "${backups[@]}"; do
+        local backup_name
+        backup_name="$(basename "$backup")"
+        # Extract timestamp from filename: state_2026-01-19_12-30-45.db
+        local timestamp
+        timestamp="${backup_name#state_}"
+        timestamp="${timestamp%.db}"
+        timestamp="${timestamp//_/ }"
+
+        local backup_size
+        backup_size="$(du -h "$backup" | cut -f1)"
+
+        printf "  ${C_INFO}%s)${C_RESET} %s (%s)\n" "$idx" "$timestamp" "$backup_size"
+        idx=$((idx + 1))
+    done
+
+    echo
+    printf "  ${C_MUTED}0)${C_RESET} Cancel\n"
+    echo
+
+    read -r -p "Choose backup to restore [1-${#backups[@]}, 0=cancel]: " choice
+
+    if [[ "$choice" == "0" ]] || [[ -z "$choice" ]]; then
+        echo
+        printf "  ${C_MUTED}Cancelled${C_RESET}\n"
+        return 0
+    fi
+
+    if ! [[ "$choice" =~ ^[0-9]+$ ]] || (( choice < 1 || choice > ${#backups[@]} )); then
+        echo
+        status_error "Invalid choice"
+        return 1
+    fi
+
+    local selected_backup="${backups[$((choice - 1))]}"
+
+    echo
+    printf "  ${C_WARNING}${C_BOLD}WARNING:${C_RESET} This will replace the current database\n"
+    echo
+    read -r -p "  Are you sure? [y/N]: " confirm
+
+    if [[ "$confirm" =~ ^[Yy]$ ]]; then
+        cp "$selected_backup" "$DB_PATH"
+        echo
+        printf "  ${C_SUCCESS}✓ Database restored from backup${C_RESET}\n"
+        echo
+        printf "  ${C_BOLD}Current database:${C_RESET}\n"
+        printf "    Master:     %s addresses\n" "$(db_count_master)"
+        printf "    Confirmed:  %s addresses\n" "$(db_count_confirmed)"
+    else
+        echo
+        printf "  ${C_MUTED}Cancelled${C_RESET}\n"
+    fi
+}
+
+delete_backups() {
+    print_box "DELETE BACKUP DATABASES"
+
+    local backup_dir="${BASE_DIR}/bak"
+
+    if [[ ! -d "$backup_dir" ]]; then
+        echo
+        status_error "No backup directory found"
+        return 1
+    fi
+
+    # List available backups
+    local backups=()
+    mapfile -t backups < <(ls -1 "$backup_dir"/state_*.db 2>/dev/null | sort -r)
+
+    if (( ${#backups[@]} == 0 )); then
+        echo
+        status_error "No backup databases found"
+        return 1
+    fi
+
+    echo
+    printf "  ${C_BOLD}Available backups:${C_RESET}\n\n"
+
+    local idx=1
+    for backup in "${backups[@]}"; do
+        local backup_name
+        backup_name="$(basename "$backup")"
+        local timestamp
+        timestamp="${backup_name#state_}"
+        timestamp="${timestamp%.db}"
+        timestamp="${timestamp//_/ }"
+
+        local backup_size
+        backup_size="$(du -h "$backup" | cut -f1)"
+
+        printf "  ${C_INFO}%s)${C_RESET} %s (%s)\n" "$idx" "$timestamp" "$backup_size"
+        idx=$((idx + 1))
+    done
+
+    echo
+    printf "  ${C_ERROR}A)${C_RESET} Delete ALL backups\n"
+    printf "  ${C_MUTED}0)${C_RESET} Cancel\n"
+    echo
+
+    read -r -p "Choose backup to delete [1-${#backups[@]}, A=all, 0=cancel]: " choice
+
+    if [[ "$choice" == "0" ]] || [[ -z "$choice" ]]; then
+        echo
+        printf "  ${C_MUTED}Cancelled${C_RESET}\n"
+        return 0
+    fi
+
+    if [[ "$choice" =~ ^[Aa]$ ]]; then
+        echo
+        printf "  ${C_ERROR}${C_BOLD}WARNING:${C_RESET} This will delete ALL ${#backups[@]} backup(s)\n"
+        echo
+        read -r -p "  Are you sure? [y/N]: " confirm
+
+        if [[ "$confirm" =~ ^[Yy]$ ]]; then
+            rm -f "$backup_dir"/state_*.db
+            echo
+            printf "  ${C_SUCCESS}✓ All backups deleted${C_RESET}\n"
+        else
+            echo
+            printf "  ${C_MUTED}Cancelled${C_RESET}\n"
+        fi
+        return 0
+    fi
+
+    if ! [[ "$choice" =~ ^[0-9]+$ ]] || (( choice < 1 || choice > ${#backups[@]} )); then
+        echo
+        status_error "Invalid choice"
+        return 1
+    fi
+
+    local selected_backup="${backups[$((choice - 1))]}"
+    local backup_name
+    backup_name="$(basename "$selected_backup")"
+
+    echo
+    printf "  ${C_WARNING}Delete backup:${C_RESET} %s\n" "$backup_name"
+    echo
+    read -r -p "  Are you sure? [y/N]: " confirm
+
+    if [[ "$confirm" =~ ^[Yy]$ ]]; then
+        rm -f "$selected_backup"
+        echo
+        printf "  ${C_SUCCESS}✓ Backup deleted${C_RESET}\n"
     else
         echo
         printf "  ${C_MUTED}Cancelled${C_RESET}\n"
@@ -149,13 +355,13 @@ show_database_first_run_menu() {
     printf "  ${C_WARNING}No database detected${C_RESET}\n"
     echo
     printf "  ${C_BOLD}Would you like to:${C_RESET}\n\n"
-    printf "  ${C_SUCCESS}1)${C_RESET} Seed confirmed CJDNS Bitcoin node addresses and attempt connection ${C_DIM}(RECOMMENDED)${C_RESET}\n"
+    printf "  ${C_SUCCESS}1)${C_RESET} Seed confirmed CJDNS Bitcoin node addresses and attempt connection ${C_SUCCESS}(RECOMMENDED)${C_RESET}\n"
     printf "     └─ Seeds database with known Bitcoin nodes and connects via onetry\n\n"
     printf "  ${C_INFO}2)${C_RESET} Seed confirmed CJDNS Bitcoin node addresses only\n"
     printf "     └─ Seeds database with known Bitcoin nodes, returns to menu\n\n"
     printf "  ${C_WARNING}3)${C_RESET} Continue without seeding\n"
     printf "     └─ Database will be created blank during first harvest\n\n"
-    printf "  ${C_MUTED}4)${C_RESET} Seed complete database (master + confirmed) ${C_DIM}(Advanced)${C_RESET}\n"
+    printf "  ${C_MUTED}4)${C_RESET} Seed complete database (master + confirmed) ${C_ERROR}(Advanced)${C_RESET}\n"
     printf "     └─ Seeds ALL addresses, including non-Bitcoin nodes\n\n"
 
     local choice
@@ -232,6 +438,12 @@ show_main_menu() {
     printf "        you're bored :)\n\n"
     printf "  ${C_MUTED}4)${C_RESET} Database: Create txt file showing all discovered CJDNS addresses\n"
     printf "     └─ Creates cjdns-bitcoin-seed-list.txt in program directory\n\n"
+    printf "  ${C_INFO}6)${C_RESET} Database: Backup current database\n"
+    printf "     └─ Creates timestamped backup in bak/ directory\n\n"
+    printf "  ${C_WARNING}7)${C_RESET} Database: Restore from backup\n"
+    printf "     └─ Restore database from previous backup\n\n"
+    printf "  ${C_ERROR}8)${C_RESET} Database: Delete backup databases\n"
+    printf "     └─ Delete individual or all backup databases\n\n"
     printf "  ${C_ERROR}5)${C_RESET} Database: Delete current database (state.db)\n"
     printf "     └─ Deletes/resets current database, prompting setup on next run\n\n"
     printf "  ${C_ERROR}0)${C_RESET} Exit\n\n"
@@ -477,7 +689,7 @@ main() {
         show_main_menu
 
         local choice
-        read -r -p "Choice [1-5, 0=exit]: " choice
+        read -r -p "Choice [1-8, 0=exit]: " choice
 
         case "$choice" in
             1)
@@ -498,10 +710,23 @@ main() {
                 echo
                 read -r -p "Press Enter to continue..."
                 ;;
-            5)
-                delete_database
+            6)
+                backup_database
                 echo
                 read -r -p "Press Enter to continue..."
+                ;;
+            7)
+                restore_database
+                echo
+                read -r -p "Press Enter to continue..."
+                ;;
+            8)
+                delete_backups
+                echo
+                read -r -p "Press Enter to continue..."
+                ;;
+            5)
+                delete_database
                 ;;
             0)
                 echo
