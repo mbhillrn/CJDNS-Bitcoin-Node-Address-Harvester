@@ -71,11 +71,12 @@ run_harvester_mode() {
     echo
     echo "Almost all set..."
     echo
-    if prompt_yn "Do you have other machines on your local network with CJDNS that you would like to scan simultaneously (uncommon)?"; then
+    if prompt_yn "Do you have other machines on your local network with CJDNS that you would like to scan simultaneously (UNCOMMON)?"; then
         harvest_remote="yes"
         echo
         status_info "Remote harvesting will scan NodeStore + Frontier on other CJDNS nodes"
         status_info "Setting up automatic login (SSH keys) for each remote host"
+        status_warn "EXPERIMENTAL FUNCTION: Disable this if experiencing errors"
         echo
 
         # Configure remote hosts

@@ -69,6 +69,11 @@ print_divider() {
     printf "${C_MUTED}%s${C_RESET}\n" "$(printf '─%.0s' $(seq 1 72))"
 }
 
+# Alias for compatibility
+print_separator() {
+    print_divider
+}
+
 # ============================================================================
 # Status Display Functions
 # ============================================================================

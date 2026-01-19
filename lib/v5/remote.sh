@@ -118,7 +118,7 @@ configure_remote_hosts() {
             echo "  Setting up automatic login..."
             echo
             if ssh-copy-id -o ConnectTimeout=10 "${user}@${host}" 2>&1 | \
-               sed '/^\/usr\/bin\/ssh-copy-id: INFO:/d; /^Number of key(s) added:/d'; then
+               sed '/^\/usr\/bin\/ssh-copy-id: INFO:/d; /^Number of key(s) added:/d; /^Now try logging into the machine/,/^and check to make sure/d'; then
                 echo
                 status_ok "Automatic login configured"
 
