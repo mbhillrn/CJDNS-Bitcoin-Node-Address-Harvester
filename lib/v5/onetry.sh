@@ -30,7 +30,7 @@ onetry_addresses() {
 
     # Dispatch onetry for each address
     local dispatched=0 failed=0 current=0
-    local show_every=10  # Show progress every N addresses
+    local show_every=5  # Show progress every N addresses
     local dots_cycle=0
     local dots_pattern=("." ".." "..." ".." ".")
 
@@ -48,12 +48,14 @@ onetry_addresses() {
             failed=$((failed + 1))
         fi
 
+        # Cycle dots on every iteration
+        dots_cycle=$(( (dots_cycle + 1) % ${#dots_pattern[@]} ))
+
         # Show progress periodically with animated dots
         if (( current % show_every == 0 )) || (( current == count )); then
-            dots_cycle=$(( (dots_cycle + 1) % ${#dots_pattern[@]} ))
-            printf "  ${C_INFO}Progress:${C_RESET} %s/%s dispatched${C_DIM}%s${C_RESET}  " "$current" "$count" "${dots_pattern[$dots_cycle]}"
+            printf "  ${C_INFO}Progress:${C_RESET} %s/%s dispatched${C_DIM}%s${C_RESET}   " "$current" "$count" "${dots_pattern[$dots_cycle]}"
             if (( failed > 0 )); then
-                printf " (${C_ERROR}%s failed${C_RESET})" "$failed"
+                printf "(${C_ERROR}%s failed${C_RESET})" "$failed"
             fi
             printf "\r"
         fi

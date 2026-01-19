@@ -363,9 +363,10 @@ show_database_first_run_menu() {
     printf "     └─ Database will be created blank during first harvest\n\n"
     printf "  ${C_MUTED}4)${C_RESET} Seed complete database (master + confirmed) ${C_ERROR}(Advanced)${C_RESET}\n"
     printf "     └─ Seeds ALL addresses, including non-Bitcoin nodes\n\n"
+    printf "  ${C_ERROR}0)${C_RESET} Exit\n\n"
 
     local choice
-    read -r -p "Choice [1-4]: " choice
+    read -r -p "Choice [1-4, 0=exit]: " choice
 
     case "$choice" in
         1)
@@ -383,11 +384,17 @@ show_database_first_run_menu() {
         4)
             seed_database_from_seeddb "all"
             ;;
+        0)
+            echo
+            log_success "Goodbye!"
+            exit 0
+            ;;
         *)
             echo
-            status_error "Invalid choice, creating blank database"
-            sleep 1
-            db_init
+            status_error "Invalid choice. Please enter 1, 2, 3, 4, or 0"
+            sleep 2
+            show_database_first_run_menu
+            return
             ;;
     esac
 
@@ -438,13 +445,13 @@ show_main_menu() {
     printf "        you're bored :)\n\n"
     printf "  ${C_MUTED}4)${C_RESET} Database: Create txt file showing all discovered CJDNS addresses\n"
     printf "     └─ Creates cjdns-bitcoin-seed-list.txt in program directory\n\n"
-    printf "  ${C_INFO}6)${C_RESET} Database: Backup current database\n"
+    printf "  ${C_INFO}5)${C_RESET} Database: Backup current database\n"
     printf "     └─ Creates timestamped backup in bak/ directory\n\n"
-    printf "  ${C_WARNING}7)${C_RESET} Database: Restore from backup\n"
+    printf "  ${C_WARNING}6)${C_RESET} Database: Restore from backup\n"
     printf "     └─ Restore database from previous backup\n\n"
-    printf "  ${C_ERROR}8)${C_RESET} Database: Delete backup databases\n"
+    printf "  ${C_ERROR}7)${C_RESET} Database: Delete backup databases\n"
     printf "     └─ Delete individual or all backup databases\n\n"
-    printf "  ${C_ERROR}5)${C_RESET} Database: Delete current database (state.db)\n"
+    printf "  ${C_ERROR}8)${C_RESET} Database: Delete current database (state.db)\n"
     printf "     └─ Deletes/resets current database, prompting setup on next run\n\n"
     printf "  ${C_ERROR}0)${C_RESET} Exit\n\n"
 }
@@ -710,22 +717,22 @@ main() {
                 echo
                 read -r -p "Press Enter to continue..."
                 ;;
-            6)
+            5)
                 backup_database
                 echo
                 read -r -p "Press Enter to continue..."
                 ;;
-            7)
+            6)
                 restore_database
                 echo
                 read -r -p "Press Enter to continue..."
                 ;;
-            8)
+            7)
                 delete_backups
                 echo
                 read -r -p "Press Enter to continue..."
                 ;;
-            5)
+            8)
                 delete_database
                 ;;
             0)
