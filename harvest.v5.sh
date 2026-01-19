@@ -113,13 +113,13 @@ run_harvester_mode() {
         display_cjdns_router
         display_bitcoin_peers
 
-        # Harvest addresses
+        # Harvest addresses (connected peers first to avoid re-testing)
+        harvest_connected_peers
         harvest_nodestore
         harvest_remote_nodestore
         harvest_frontier
         harvest_remote_frontier
         harvest_addrman
-        harvest_connected_peers
 
         # Show updated database counts
         echo
