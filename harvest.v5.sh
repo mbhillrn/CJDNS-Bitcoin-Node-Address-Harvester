@@ -43,6 +43,82 @@ show_main_menu() {
 }
 
 # ============================================================================
+# Run Summary Display
+# ============================================================================
+show_run_summary() {
+    echo
+    print_section "Run Summary"
+
+    # Get connected peers NOW
+    local end_peers="/tmp/cjdh_run_end_peers.$$"
+    bash -c "$CLI getpeerinfo" 2>/dev/null \
+        | jq -r '.[] | select(.network=="cjdns") | .addr' 2>/dev/null \
+        | while IFS= read -r raw; do
+            canon_host "$(cjdns_host_from_maybe_bracketed "$raw")"
+        done | sort -u > "$end_peers" 2>/dev/null || true
+
+    # Count connected peers
+    local start_count=0 end_count=0
+    [[ -f "/tmp/cjdh_run_start_peers.$$" ]] && start_count=$(wc -l < "/tmp/cjdh_run_start_peers.$$" 2>/dev/null || echo 0)
+    [[ -f "$end_peers" ]] && end_count=$(wc -l < "$end_peers" 2>/dev/null || echo 0)
+
+    # Count NEW addresses
+    local new_master_count=0 new_confirmed_count=0
+    [[ -f "/tmp/cjdh_run_new_master.$$" ]] && new_master_count=$(sort -u "/tmp/cjdh_run_new_master.$$" 2>/dev/null | wc -l || echo 0)
+    [[ -f "/tmp/cjdh_run_new_confirmed.$$" ]] && new_confirmed_count=$(sort -u "/tmp/cjdh_run_new_confirmed.$$" 2>/dev/null | wc -l || echo 0)
+
+    # Display connection status
+    printf "  ${C_BOLD}CJDNS Bitcoin Peers:${C_RESET}\n"
+    printf "    At start:  %s connected\n" "$start_count"
+    printf "    At end:    %s connected\n" "$end_count"
+
+    if (( start_count > 0 )) && [[ -f "/tmp/cjdh_run_start_peers.$$" ]]; then
+        echo
+        printf "  ${C_DIM}Connected at start:${C_RESET}\n"
+        while IFS= read -r addr; do
+            [[ -n "$addr" ]] || continue
+            printf "    %s\n" "$addr"
+        done < "/tmp/cjdh_run_start_peers.$$"
+    fi
+
+    if (( end_count > 0 )) && [[ -f "$end_peers" ]]; then
+        echo
+        printf "  ${C_DIM}Connected at end:${C_RESET}\n"
+        while IFS= read -r addr; do
+            [[ -n "$addr" ]] || continue
+            printf "    %s\n" "$addr"
+        done < "$end_peers"
+    fi
+
+    # Display NEW addresses added this run
+    echo
+    printf "  ${C_BOLD}New Addresses This Run:${C_RESET}\n"
+    printf "    Master:     %s new\n" "$new_master_count"
+    printf "    Confirmed:  %s new\n" "$new_confirmed_count"
+
+    if (( new_master_count > 0 )) && [[ -f "/tmp/cjdh_run_new_master.$$" ]]; then
+        echo
+        printf "  ${C_SUCCESS}New to master:${C_RESET}\n"
+        sort -u "/tmp/cjdh_run_new_master.$$" 2>/dev/null | while IFS= read -r addr; do
+            [[ -n "$addr" ]] || continue
+            printf "    ${C_SUCCESS}+${C_RESET} %s\n" "$addr"
+        done
+    fi
+
+    if (( new_confirmed_count > 0 )) && [[ -f "/tmp/cjdh_run_new_confirmed.$$" ]]; then
+        echo
+        printf "  ${C_SUCCESS}New to confirmed:${C_RESET}\n"
+        sort -u "/tmp/cjdh_run_new_confirmed.$$" 2>/dev/null | while IFS= read -r addr; do
+            [[ -n "$addr" ]] || continue
+            printf "    ${C_SUCCESS}✓${C_RESET} %s\n" "$addr"
+        done
+    fi
+
+    # Cleanup temp files
+    rm -f "/tmp/cjdh_run_start_peers.$$" "$end_peers" "/tmp/cjdh_run_new_master.$$" "/tmp/cjdh_run_new_confirmed.$$"
+}
+
+# ============================================================================
 # Harvester Mode (Option 1)
 # ============================================================================
 run_harvester_mode() {
@@ -111,7 +187,19 @@ run_harvester_mode() {
 
         # Display current status
         display_cjdns_router
+
+        # Capture connected peers at START of run
+        bash -c "$CLI getpeerinfo" 2>/dev/null \
+            | jq -r '.[] | select(.network=="cjdns") | .addr' 2>/dev/null \
+            | while IFS= read -r raw; do
+                canon_host "$(cjdns_host_from_maybe_bracketed "$raw")"
+            done | sort -u > "/tmp/cjdh_run_start_peers.$$" 2>/dev/null || true
+
         display_bitcoin_peers
+
+        # Initialize run tracking files
+        : > "/tmp/cjdh_run_new_master.$$"
+        : > "/tmp/cjdh_run_new_confirmed.$$"
 
         # Harvest addresses
         harvest_nodestore
@@ -135,6 +223,9 @@ run_harvester_mode() {
         master_count="$(db_count_master)"
         confirmed_count="$(db_count_confirmed)"
         print_db_stats "$master_count" "$confirmed_count" "FINAL DATABASE STATUS"
+
+        # Show run summary
+        show_run_summary
 
         # Check if stop requested
         if (( HARVEST_STOP_REQUESTED == 1 )); then

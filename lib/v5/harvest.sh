@@ -62,6 +62,7 @@ harvest_nodestore() {
             if db_check_new "$host"; then
                 echo "$host" >> "/tmp/cjdh_harvest_new.$$"
                 echo "$host" >> "/tmp/cjdh_all_new.$$"  # Track for onetry
+                echo "$host" >> "/tmp/cjdh_run_new_master.$$"  # Track for run summary
             else
                 echo "$host" >> "/tmp/cjdh_harvest_existing.$$"
             fi
@@ -173,6 +174,7 @@ harvest_remote_nodestore() {
                 if db_check_new "$host"; then
                     echo "$host" >> "/tmp/cjdh_remote_new_${idx}.$$"
                     echo "$host" >> "/tmp/cjdh_all_new.$$"  # Track for onetry
+                echo "$host" >> "/tmp/cjdh_run_new_master.$$"  # Track for run summary
                 else
                     echo "$host" >> "/tmp/cjdh_remote_existing_${idx}.$$"
                 fi
@@ -292,6 +294,7 @@ harvest_remote_frontier() {
                 if db_check_new "$host"; then
                     all_new+=("$host")
                     echo "$host" >> "/tmp/cjdh_all_new.$$"  # Track for onetry
+                echo "$host" >> "/tmp/cjdh_run_new_master.$$"  # Track for run summary
                     total_new=$((total_new + 1))
                 else
                     total_existing=$((total_existing + 1))
@@ -533,7 +536,13 @@ harvest_connected_peers() {
         fi
 
         db_upsert_master "$host" "connected_now"
+
+        # Track if this is NEW to confirmed, then confirm it
+        if ! db_is_in_confirmed "$host"; then
+            echo "$host" >> "/tmp/cjdh_run_new_confirmed.$$" 2>/dev/null
+        fi
         db_upsert_confirmed "$host"  # Auto-confirm connected peers
+
         count=$((count + 1))
     done <<< "$cjdns_peers"
 

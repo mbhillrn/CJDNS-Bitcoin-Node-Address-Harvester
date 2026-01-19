@@ -102,6 +102,9 @@ onetry_addresses() {
             printf "    ${C_SUCCESS}✓${C_RESET} %s\n" "$addr"
 
             # Auto-confirm connected addresses
+            if ! db_is_in_confirmed "$addr"; then
+                echo "$addr" >> "/tmp/cjdh_run_new_confirmed.$$" 2>/dev/null
+            fi
             db_upsert_confirmed "$addr"
             db_upsert_master "$addr" "onetry_connected"
         done < "$new_connections"
