@@ -58,44 +58,43 @@ while IFS= read -r peer_file; do
 
     echo "[$CURRENT/$TOTAL_FILES] Processing: $peer_file"
 
-    # Extract IPv4 peers (addresses without brackets)
-    while IFS= read -r address; do
-        [ -z "$address" ] && continue
+    # Get all IPv4 addresses (no brackets)
+    ipv4_addrs=$(echo "$peer_json" | jq -r 'keys[] | select(startswith("[") | not)' 2>/dev/null || echo "")
 
-        # Get peer details
-        login=$(echo "$peer_json" | jq -r ".[\"$address\"].login // \"default-login\"")
-        password=$(echo "$peer_json" | jq -r ".[\"$address\"].password")
-        publicKey=$(echo "$peer_json" | jq -r ".[\"$address\"].publicKey")
-        peerName=$(echo "$peer_json" | jq -r ".[\"$address\"].peerName // \"unknown\"")
-        contact=$(echo "$peer_json" | jq -r ".[\"$address\"].contact // \"N/A\"")
+    if [ -n "$ipv4_addrs" ]; then
+        while IFS= read -r address; do
+            [ -z "$address" ] && continue
 
-        # Add to IPv4 output
-        echo "$peer_json" | jq --arg addr "$address" \
-            "{($addr): .[$addr]}" > /tmp/peer_entry_$$.json
+            # Extract this peer's data
+            peer_data=$(echo "$peer_json" | jq --arg addr "$address" '{($addr): .[$addr]}' 2>/dev/null)
 
-        jq -s '.[0] * .[1]' "$OUTPUT_IPV4" /tmp/peer_entry_$$.json > /tmp/merged_$$.json
-        mv /tmp/merged_$$.json "$OUTPUT_IPV4"
-        rm -f /tmp/peer_entry_$$.json
+            if [ -n "$peer_data" ]; then
+                # Merge into output
+                echo "$peer_data" | jq -s --slurpfile existing "$OUTPUT_IPV4" '.[0] * $existing[0]' > /tmp/merged_$$.json
+                mv /tmp/merged_$$.json "$OUTPUT_IPV4"
+                IPV4_COUNT=$((IPV4_COUNT + 1))
+            fi
+        done <<< "$ipv4_addrs"
+    fi
 
-        IPV4_COUNT=$((IPV4_COUNT + 1))
+    # Get all IPv6 addresses (with brackets)
+    ipv6_addrs=$(echo "$peer_json" | jq -r 'keys[] | select(startswith("["))' 2>/dev/null || echo "")
 
-    done < <(echo "$peer_json" | jq -r 'keys[] | select(startswith("[") | not)')
+    if [ -n "$ipv6_addrs" ]; then
+        while IFS= read -r address; do
+            [ -z "$address" ] && continue
 
-    # Extract IPv6 peers (addresses with brackets)
-    while IFS= read -r address; do
-        [ -z "$address" ] && continue
+            # Extract this peer's data
+            peer_data=$(echo "$peer_json" | jq --arg addr "$address" '{($addr): .[$addr]}' 2>/dev/null)
 
-        # Add to IPv6 output
-        echo "$peer_json" | jq --arg addr "$address" \
-            "{($addr): .[$addr]}" > /tmp/peer_entry_$$.json
-
-        jq -s '.[0] * .[1]' "$OUTPUT_IPV6" /tmp/peer_entry_$$.json > /tmp/merged_$$.json
-        mv /tmp/merged_$$.json "$OUTPUT_IPV6"
-        rm -f /tmp/peer_entry_$$.json
-
-        IPV6_COUNT=$((IPV6_COUNT + 1))
-
-    done < <(echo "$peer_json" | jq -r 'keys[] | select(startswith("["))')
+            if [ -n "$peer_data" ]; then
+                # Merge into output
+                echo "$peer_data" | jq -s --slurpfile existing "$OUTPUT_IPV6" '.[0] * $existing[0]' > /tmp/merged_$$.json
+                mv /tmp/merged_$$.json "$OUTPUT_IPV6"
+                IPV6_COUNT=$((IPV6_COUNT + 1))
+            fi
+        done <<< "$ipv6_addrs"
+    fi
 
 done <<< "$ALL_K_FILES"
 
@@ -137,19 +136,18 @@ while IFS= read -r address; do
         echo "✓ ACTIVE"
 
         # Copy this peer to active list
-        jq --arg addr "$address" \
-            "{($addr): .[$addr]}" "$OUTPUT_IPV4" > /tmp/peer_entry_$$.json
+        peer_data=$(jq --arg addr "$address" '{($addr): .[$addr]}' "$OUTPUT_IPV4" 2>/dev/null)
 
-        jq -s '.[0] * .[1]' "$ACTIVE_OUTPUT" /tmp/peer_entry_$$.json > /tmp/merged_$$.json
-        mv /tmp/merged_$$.json "$ACTIVE_OUTPUT"
-        rm -f /tmp/peer_entry_$$.json
-
-        ACTIVE=$((ACTIVE + 1))
+        if [ -n "$peer_data" ]; then
+            echo "$peer_data" | jq -s --slurpfile existing "$ACTIVE_OUTPUT" '.[0] * $existing[0]' > /tmp/merged_$$.json
+            mv /tmp/merged_$$.json "$ACTIVE_OUTPUT"
+            ACTIVE=$((ACTIVE + 1))
+        fi
     else
         echo "✗ unreachable"
     fi
 
-done < <(jq -r 'keys[]' "$OUTPUT_IPV4")
+done < <(jq -r 'keys[]' "$OUTPUT_IPV4" 2>/dev/null)
 
 echo
 echo "======================================"
