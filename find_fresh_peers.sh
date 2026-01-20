@@ -23,7 +23,7 @@ cd peers
 echo
 echo "Available regions:"
 echo "=================="
-find . -type d -mindepth 1 -maxdepth 1 | sed 's|./||' | grep -v '\.git'
+find . -mindepth 1 -maxdepth 1 -type d | sed 's|./||' | grep -v '\.git'
 
 echo
 echo "Searching for active IPv4 UDP peers..."
