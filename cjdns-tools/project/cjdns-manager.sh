@@ -745,30 +745,112 @@ discover_preview() {
     print_ascii_header
     print_header "Discover & Preview Peers"
 
-    print_info "This will show you what peers are available (read-only preview)"
+    print_info "Updating locally stored address list and analyzing available peers"
     echo
 
-    print_subheader "Updating Master List"
+    # Update master list
+    print_subheader "Updating Locally Stored Address List"
     local result=$(update_master_list)
-    local master_ipv4=$(echo "$result" | cut -d'|' -f1)
-    local master_ipv6=$(echo "$result" | cut -d'|' -f2)
+    local local_ipv4=$(echo "$result" | cut -d'|' -f1)
+    local local_ipv6=$(echo "$result" | cut -d'|' -f2)
+    print_success "Locally stored address list: $local_ipv4 IPv4, $local_ipv6 IPv6"
 
-    print_success "Master list: $master_ipv4 IPv4, $master_ipv6 IPv6 peers"
+    # Get current config counts
+    local config_ipv4=$(get_peer_count "$CJDNS_CONFIG" 0)
+    local config_ipv6=$(get_peer_count "$CJDNS_CONFIG" 1)
+    print_success "CJDNS config file: $config_ipv4 IPv4, $config_ipv6 IPv6 peers"
     echo
 
-    print_subheader "Sample IPv4 Peers"
-    local preview_ipv4="$WORK_DIR/preview_ipv4.json"
-    get_master_peers "ipv4" > "$preview_ipv4"
-    show_peer_details "$preview_ipv4" 5
+    # Filter for new peers
+    print_subheader "Finding New Peers"
+    local all_ipv4="$WORK_DIR/all_ipv4.json"
+    local all_ipv6="$WORK_DIR/all_ipv6.json"
+    local new_ipv4="$WORK_DIR/new_ipv4.json"
+    local new_ipv6="$WORK_DIR/new_ipv6.json"
+    local updates_ipv4="$WORK_DIR/updates_ipv4.json"
+    local updates_ipv6="$WORK_DIR/updates_ipv6.json"
+
+    get_master_peers "ipv4" > "$all_ipv4"
+    get_master_peers "ipv6" > "$all_ipv6"
+
+    local new_counts_ipv4=$(smart_duplicate_check "$all_ipv4" "$CJDNS_CONFIG" 0 "$new_ipv4" "$updates_ipv4")
+    local new_counts_ipv6=$(smart_duplicate_check "$all_ipv6" "$CJDNS_CONFIG" 1 "$new_ipv6" "$updates_ipv6")
+
+    local new_ipv4_count=$(echo "$new_counts_ipv4" | cut -d'|' -f1)
+    local new_ipv6_count=$(echo "$new_counts_ipv6" | cut -d'|' -f1)
+
+    print_success "New peers not in config: $new_ipv4_count IPv4, $new_ipv6_count IPv6"
+
+    # Test connectivity if user wants
+    if [ "$new_ipv4_count" -gt 0 ] || [ "$new_ipv6_count" -gt 0 ]; then
+        echo
+        if ask_yes_no "Test connectivity to new peers? (This may take a few minutes)"; then
+            print_subheader "Testing Connectivity"
+
+            local pingable_ipv4="$WORK_DIR/pingable_ipv4.json"
+            local pingable_ipv6="$WORK_DIR/pingable_ipv6.json"
+            echo "{}" > "$pingable_ipv4"
+            echo "{}" > "$pingable_ipv6"
+
+            local pingable_ipv4_count=0
+            local pingable_ipv6_count=0
+
+            # Test IPv4
+            if [ "$new_ipv4_count" -gt 0 ]; then
+                print_info "Testing $new_ipv4_count IPv4 peers..."
+                local tested=0
+                while IFS= read -r addr; do
+                    tested=$((tested + 1))
+                    echo -n "[$tested/$new_ipv4_count] $addr... "
+                    if test_peer_connectivity "$addr" 2 >/dev/null 2>&1; then
+                        echo -e "${GREEN}✓${NC}"
+                        pingable_ipv4_count=$((pingable_ipv4_count + 1))
+                        local peer_data=$(jq --arg addr "$addr" '.[$addr]' "$new_ipv4")
+                        jq -s --arg addr "$addr" --argjson peer "$peer_data" '.[0] + {($addr): $peer}' "$pingable_ipv4" > "$pingable_ipv4.tmp"
+                        mv "$pingable_ipv4.tmp" "$pingable_ipv4"
+                    else
+                        echo -e "${RED}✗${NC}"
+                    fi
+                done < <(jq -r 'keys[]' "$new_ipv4")
+            fi
+
+            # Test IPv6
+            if [ "$new_ipv6_count" -gt 0 ]; then
+                print_info "Testing $new_ipv6_count IPv6 peers..."
+                local tested=0
+                while IFS= read -r addr; do
+                    tested=$((tested + 1))
+                    echo -n "[$tested/$new_ipv6_count] $addr... "
+                    if test_peer_connectivity "$addr" 2 >/dev/null 2>&1; then
+                        echo -e "${GREEN}✓${NC}"
+                        pingable_ipv6_count=$((pingable_ipv6_count + 1))
+                        local peer_data=$(jq --arg addr "$addr" '.[$addr]' "$new_ipv6")
+                        jq -s --arg addr "$addr" --argjson peer "$peer_data" '.[0] + {($addr): $peer}' "$pingable_ipv6" > "$pingable_ipv6.tmp"
+                        mv "$pingable_ipv6.tmp" "$pingable_ipv6"
+                    else
+                        echo -e "${RED}✗${NC}"
+                    fi
+                done < <(jq -r 'keys[]' "$new_ipv6")
+            fi
+
+            echo
+            print_success "Pingable peers not in config: $pingable_ipv4_count IPv4, $pingable_ipv6_count IPv6"
+        fi
+    fi
+
+    # Show available peers details if requested
+    echo
+    if ask_yes_no "View all peers from locally stored address list?"; then
+        print_subheader "All IPv4 Peers in Local Database"
+        show_peer_details "$all_ipv4" 99999
+
+        echo
+        print_subheader "All IPv6 Peers in Local Database"
+        show_peer_details "$all_ipv6" 99999
+    fi
 
     echo
-    print_subheader "Sample IPv6 Peers"
-    local preview_ipv6="$WORK_DIR/preview_ipv6.json"
-    get_master_peers "ipv6" > "$preview_ipv6"
-    show_peer_details "$preview_ipv6" 5
-
-    echo
-    print_info "Use the Wizard to test and add these peers"
+    print_info "To add these peers, return to the main menu and select the Peer Adding Wizard"
     echo
     read -p "Press Enter to continue..."
 }
@@ -874,7 +956,10 @@ add_single_peer() {
 remove_peers_menu() {
     clear
     print_ascii_header
-    print_header "Remove Peers"
+    print_header "Remove Peers from Config"
+
+    print_warning "WARNING: This will permanently remove peers from your cjdns config file"
+    echo
 
     # Get current peer states
     local peer_states="$WORK_DIR/peer_states.txt"
@@ -898,65 +983,149 @@ remove_peers_menu() {
         return
     fi
 
-    print_subheader "All Peers (sorted by quality)"
-    printf "%-30s %-15s %-10s %-5s %-5s\n" "Address" "State" "Quality" "Est." "Unr."
-    printf "%-30s %-15s %-10s %-5s %-5s\n" "-------" "-----" "-------" "----" "----"
+    # Build arrays for display
+    declare -a peer_addresses
+    declare -a peer_displays
+    local index=0
 
-    while IFS='|' read -r address state quality established unresponsive first_seen; do
-        printf "%-30s %-15s %-9.1f%% %-5d %-5d\n" "$address" "$state" "$quality" "$established" "$unresponsive"
+    print_subheader "All Peers in Config (sorted by quality)"
+    echo "Est.=Established count, Unr.=Unresponsive count"
+    echo
+
+    while IFS='|' read -r address state quality est_count unr_count first_seen last_change consecutive; do
+        [ -z "$address" ] && continue
+
+        index=$((index + 1))
+        peer_addresses+=("$address")
+
+        local quality_display=$(printf "%.0f%%" "$quality")
+        local time_in_state=$(time_since "$last_change")
+
+        if [ "$state" = "ESTABLISHED" ]; then
+            printf "%3d) ${GREEN}✓${NC} %-40s Q:%-5s Est:%-3d Unr:%-3d (Established %s)\n" \
+                "$index" "$address" "$quality_display" "$est_count" "$unr_count" "$time_in_state"
+        elif [ "$state" = "UNRESPONSIVE" ]; then
+            printf "%3d) ${RED}✗${NC} %-40s Q:%-5s Est:%-3d Unr:%-3d (Unresponsive %s, checked %dx)\n" \
+                "$index" "$address" "$quality_display" "$est_count" "$unr_count" "$time_in_state" "$consecutive"
+        else
+            printf "%3d) ${YELLOW}?${NC} %-40s Q:%-5s Est:%-3d Unr:%-3d (%s %s)\n" \
+                "$index" "$address" "$quality_display" "$est_count" "$unr_count" "$state" "$time_in_state"
+        fi
+
+        peer_displays+=("$address ($state)")
     done <<< "$all_peers"
 
     echo
-    print_info "To remove specific peers, enter their addresses (comma-separated)"
+    print_info "Enter peer numbers to remove (space or comma-separated, e.g., '1 3 5' or '1,3,5')"
+    print_info "Or type 'all-unresponsive' to remove all unresponsive peers"
     print_info "Or press Enter to cancel"
     echo
 
     local selection
-    read -p "Addresses to remove: " -r selection
+    read -p "Selection: " -r selection
 
     if [ -z "$selection" ]; then
+        print_info "Cancelled"
+        echo
+        read -p "Press Enter to continue..."
         return
     fi
 
-    # Parse addresses
-    IFS=',' read -ra addresses <<< "$selection"
+    # Parse selection
+    declare -a selected_addresses
 
-    if [ ${#addresses[@]} -eq 0 ]; then
-        return
-    fi
+    if [ "$selection" = "all-unresponsive" ]; then
+        # Select all unresponsive
+        while IFS='|' read -r address state quality est_count unr_count first_seen last_change consecutive; do
+            [ -z "$address" ] && continue
+            if [ "$state" = "UNRESPONSIVE" ]; then
+                selected_addresses+=("$address")
+            fi
+        done <<< "$all_peers"
 
-    # Confirm
-    echo
-    print_warning "About to remove ${#addresses[@]} peer(s)"
-    if ! ask_yes_no "Are you sure?"; then
-        return
-    fi
+        if [ ${#selected_addresses[@]} -eq 0 ]; then
+            print_warning "No unresponsive peers found"
+            echo
+            read -p "Press Enter to continue..."
+            return
+        fi
 
-    # Backup and remove
-    local backup
-    if backup=$(backup_config "$CJDNS_CONFIG"); then
-        print_success "Backup created: $backup"
+        print_warning "Selected ${#selected_addresses[@]} unresponsive peer(s) for removal"
     else
-        print_error "Failed to create backup"
+        # Parse numbers
+        selection=$(echo "$selection" | tr ',' ' ')
+        for num in $selection; do
+            if [[ "$num" =~ ^[0-9]+$ ]] && [ "$num" -ge 1 ] && [ "$num" -le "${#peer_addresses[@]}" ]; then
+                selected_addresses+=("${peer_addresses[$((num-1))]}")
+            else
+                print_error "Invalid selection: $num"
+            fi
+        done
+
+        if [ ${#selected_addresses[@]} -eq 0 ]; then
+            print_error "No valid peers selected"
+            echo
+            read -p "Press Enter to continue..."
+            return
+        fi
+    fi
+
+    # Show what will be removed
+    echo
+    print_warning "The following peers will be PERMANENTLY REMOVED from your config:"
+    for addr in "${selected_addresses[@]}"; do
+        echo "  - $addr"
+    done
+
+    echo
+    if ! ask_yes_no "Are you SURE you want to remove these peers?"; then
+        print_info "Cancelled"
+        echo
+        read -p "Press Enter to continue..."
         return
     fi
 
+    # Backup
+    echo
+    if ! ask_yes_no "Create backup before removing?"; then
+        print_warning "Proceeding without backup!"
+    else
+        local backup
+        if backup=$(backup_config "$CJDNS_CONFIG"); then
+            print_success "Backup created: $backup"
+        else
+            print_error "Failed to create backup"
+            if ! ask_yes_no "Continue anyway?"; then
+                return
+            fi
+        fi
+    fi
+
+    # Remove peers
     local temp_config="$WORK_DIR/config.tmp"
 
     # Try removing from both interfaces
-    remove_peers_from_config "$CJDNS_CONFIG" 0 "$temp_config" "${addresses[@]}"
-    remove_peers_from_config "$temp_config" 1 "$temp_config.new" "${addresses[@]}"
+    remove_peers_from_config "$CJDNS_CONFIG" 0 "$temp_config" "${selected_addresses[@]}"
+    remove_peers_from_config "$temp_config" 1 "$temp_config.new" "${selected_addresses[@]}"
     mv "$temp_config.new" "$temp_config"
 
-    if validate_config "$temp_config"; then
-        cp "$temp_config" "$CJDNS_CONFIG"
-        print_success "Peers removed successfully!"
+    # Validate
+    if ! validate_config "$temp_config"; then
+        print_error "Config validation failed after removal"
+        print_error "Your config was NOT modified"
+        echo
+        read -p "Press Enter to continue..."
+        return
+    fi
 
-        if ask_yes_no "Restart cjdns now?"; then
-            restart_service
-        fi
-    else
-        print_error "Config validation failed"
+    # Save
+    cp "$temp_config" "$CJDNS_CONFIG"
+    print_success "Successfully removed ${#selected_addresses[@]} peer(s) from config!"
+
+    # Restart
+    echo
+    if ask_yes_no "Restart cjdns service now to apply changes?"; then
+        restart_service
     fi
 
     echo
@@ -980,24 +1149,37 @@ view_peer_status() {
     local total=$(wc -l < "$peer_states")
     local established=$(grep -c "^ESTABLISHED|" "$peer_states" || echo 0)
     local unresponsive=$(grep -c "^UNRESPONSIVE|" "$peer_states" || echo 0)
+    local other=$((total - established - unresponsive))
 
     echo "Total peers: $total"
-    echo "  ${GREEN}✓${NC} ESTABLISHED: $established"
-    echo "  ${RED}✗${NC} UNRESPONSIVE: $unresponsive"
+    print_success "ESTABLISHED: $established"
+    print_error "UNRESPONSIVE: $unresponsive"
+    if [ "$other" -gt 0 ]; then
+        print_warning "OTHER STATES: $other"
+    fi
     echo
 
-    if ask_yes_no "Show detailed list with quality scores?"; then
+    if ask_yes_no "Show detailed list with quality scores and timestamps?"; then
         print_subheader "Peer Details"
-        while IFS='|' read -r state address; do
-            local quality=$(get_peer_quality "$address")
+
+        # Get all peers with full details from database
+        local all_peers=$(get_all_peers_by_quality)
+
+        # Display each peer
+        while IFS='|' read -r address state quality est_count unr_count first_seen last_change consecutive; do
+            [ -z "$address" ] && continue
+
             local quality_display=$(printf "%.0f%%" "$quality")
+            local time_in_state=$(time_since "$last_change")
 
             if [ "$state" = "ESTABLISHED" ]; then
-                echo -e "${GREEN}✓${NC} $state: $address (Quality: $quality_display)"
+                print_success "$state: $address (Quality: $quality_display, Established $time_in_state)"
+            elif [ "$state" = "UNRESPONSIVE" ]; then
+                print_error "$state: $address (Quality: $quality_display, Unresponsive $time_in_state, Checked $consecutive times)"
             else
-                echo -e "${RED}✗${NC} $state: $address (Quality: $quality_display)"
+                print_warning "$state: $address (Quality: $quality_display, In state $time_in_state)"
             fi
-        done < "$peer_states"
+        done <<< "$all_peers"
     fi
 
     echo

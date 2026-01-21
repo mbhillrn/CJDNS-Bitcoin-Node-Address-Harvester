@@ -81,6 +81,8 @@ CREATE TABLE IF NOT EXISTS peers (
     state TEXT,
     first_seen INTEGER,
     last_seen INTEGER,
+    last_state_change INTEGER,
+    consecutive_checks_in_state INTEGER DEFAULT 0,
     established_count INTEGER DEFAULT 0,
     unresponsive_count INTEGER DEFAULT 0,
     other_count INTEGER DEFAULT 0,
@@ -92,6 +94,15 @@ EOF
     # Set proper permissions on database file
     if [ $result -eq 0 ] && [ -f "$DB_FILE" ]; then
         chmod 644 "$DB_FILE" 2>/dev/null
+    fi
+
+    # Migrate existing database if needed
+    local has_state_change=$(sqlite3 "$DB_FILE" "PRAGMA table_info(peers);" | grep -c "last_state_change" || echo 0)
+    if [ "$has_state_change" -eq 0 ]; then
+        sqlite3 "$DB_FILE" <<'EOF'
+ALTER TABLE peers ADD COLUMN last_state_change INTEGER DEFAULT 0;
+ALTER TABLE peers ADD COLUMN consecutive_checks_in_state INTEGER DEFAULT 0;
+EOF
     fi
 
     return $result
@@ -121,41 +132,84 @@ update_peer_state() {
     if [ "$exists" -eq 0 ]; then
         # New peer - insert
         sqlite3 "$DB_FILE" <<EOF
-INSERT INTO peers (address, state, first_seen, last_seen, established_count, unresponsive_count, other_count)
-VALUES ('$address', '$state', $now, $now, 0, 0, 0);
+INSERT INTO peers (address, state, first_seen, last_seen, last_state_change, consecutive_checks_in_state, established_count, unresponsive_count, other_count)
+VALUES ('$address', '$state', $now, $now, $now, 1, 0, 0, 0);
 EOF
     fi
 
-    # Update counts based on state
-    case "$state" in
-        ESTABLISHED)
-            sqlite3 "$DB_FILE" <<EOF
+    # Get current state from database
+    local current_state=$(sqlite3 "$DB_FILE" "SELECT state FROM peers WHERE address='$address';")
+
+    # Check if state changed
+    if [ "$current_state" != "$state" ]; then
+        # State changed - reset consecutive checks and update last_state_change
+        case "$state" in
+            ESTABLISHED)
+                sqlite3 "$DB_FILE" <<EOF
 UPDATE peers SET
     state='$state',
     last_seen=$now,
+    last_state_change=$now,
+    consecutive_checks_in_state=1,
     established_count=established_count+1
 WHERE address='$address';
 EOF
-            ;;
-        UNRESPONSIVE)
-            sqlite3 "$DB_FILE" <<EOF
+                ;;
+            UNRESPONSIVE)
+                sqlite3 "$DB_FILE" <<EOF
 UPDATE peers SET
     state='$state',
     last_seen=$now,
+    last_state_change=$now,
+    consecutive_checks_in_state=1,
     unresponsive_count=unresponsive_count+1
 WHERE address='$address';
 EOF
-            ;;
-        *)
-            sqlite3 "$DB_FILE" <<EOF
+                ;;
+            *)
+                sqlite3 "$DB_FILE" <<EOF
 UPDATE peers SET
     state='$state',
     last_seen=$now,
+    last_state_change=$now,
+    consecutive_checks_in_state=1,
     other_count=other_count+1
 WHERE address='$address';
 EOF
-            ;;
-    esac
+                ;;
+        esac
+    else
+        # State same - increment consecutive checks
+        case "$state" in
+            ESTABLISHED)
+                sqlite3 "$DB_FILE" <<EOF
+UPDATE peers SET
+    last_seen=$now,
+    consecutive_checks_in_state=consecutive_checks_in_state+1,
+    established_count=established_count+1
+WHERE address='$address';
+EOF
+                ;;
+            UNRESPONSIVE)
+                sqlite3 "$DB_FILE" <<EOF
+UPDATE peers SET
+    last_seen=$now,
+    consecutive_checks_in_state=consecutive_checks_in_state+1,
+    unresponsive_count=unresponsive_count+1
+WHERE address='$address';
+EOF
+                ;;
+            *)
+                sqlite3 "$DB_FILE" <<EOF
+UPDATE peers SET
+    last_seen=$now,
+    consecutive_checks_in_state=consecutive_checks_in_state+1,
+    other_count=other_count+1
+WHERE address='$address';
+EOF
+                ;;
+        esac
+    fi
 
     # Recalculate quality score
     sqlite3 "$DB_FILE" <<EOF
@@ -182,7 +236,7 @@ get_peer_stats() {
 
 # Get all peers sorted by quality
 get_all_peers_by_quality() {
-    sqlite3 "$DB_FILE" "SELECT address, state, quality_score, established_count, unresponsive_count, first_seen FROM peers ORDER BY quality_score DESC;" 2>/dev/null
+    sqlite3 "$DB_FILE" "SELECT address, state, quality_score, established_count, unresponsive_count, first_seen, last_state_change, consecutive_checks_in_state FROM peers ORDER BY quality_score DESC;" 2>/dev/null
 }
 
 # Reset database
@@ -217,4 +271,21 @@ clean_database() {
 format_timestamp() {
     local timestamp="$1"
     date -d "@$timestamp" "+%b %d, %Y %H:%M" 2>/dev/null || echo "Unknown"
+}
+
+# Format time since timestamp (human readable)
+time_since() {
+    local timestamp="$1"
+    local now=$(date +%s)
+    local diff=$((now - timestamp))
+
+    if [ "$diff" -lt 60 ]; then
+        echo "${diff}s ago"
+    elif [ "$diff" -lt 3600 ]; then
+        echo "$((diff / 60))m ago"
+    elif [ "$diff" -lt 86400 ]; then
+        echo "$((diff / 3600))h ago"
+    else
+        echo "$((diff / 86400))d ago"
+    fi
 }
