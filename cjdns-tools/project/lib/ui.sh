@@ -87,7 +87,7 @@ ask_selection() {
 # Ask for text input
 ask_input() {
     local prompt="$1"
-    local default="$2"
+    local default="${2:-}"  # Default to empty string if $2 not provided
     local response
 
     if [ -n "$default" ]; then
