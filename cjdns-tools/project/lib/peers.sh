@@ -235,3 +235,102 @@ filter_new_peers() {
     # Return count of new peers
     jq 'length' "$output_file"
 }
+
+# Smart duplicate detection - detects address matches with different credentials
+# Returns: filtered peers JSON + updates JSON (if user approves updates)
+smart_duplicate_check() {
+    local new_peers_file="$1"
+    local config_file="$2"
+    local interface_index="$3"
+    local output_new="$4"
+    local output_updates="$5"
+
+    # Extract existing peers from config
+    local existing_peers=$(mktemp)
+    jq -r ".interfaces.UDPInterface[$interface_index].connectTo // {}" "$config_file" > "$existing_peers"
+
+    echo "{}" > "$output_new"
+    echo "{}" > "$output_updates"
+
+    local new_addrs=$(jq -r 'keys[]' "$new_peers_file" 2>/dev/null)
+
+    while IFS= read -r addr; do
+        [ -z "$addr" ] && continue
+
+        # Check if address exists in config
+        local exists=$(jq -e --arg addr "$addr" 'has($addr)' "$existing_peers" 2>/dev/null)
+
+        if [ "$exists" = "true" ]; then
+            # Address exists - compare fields
+            local config_peer=$(jq --arg addr "$addr" '.[$addr]' "$existing_peers")
+            local new_peer=$(jq --arg addr "$addr" '.[$addr]' "$new_peers_file")
+
+            # Compare JSON objects
+            if [ "$config_peer" != "$new_peer" ]; then
+                # Fields differ - show comparison
+                print_warning "Duplicate address found with different credentials: $addr"
+                echo
+                echo "Current configuration:"
+                echo "$config_peer" | jq -r 'to_entries[] | "  \(.key): \(.value)"'
+                echo
+                echo "New peer data:"
+                echo "$new_peer" | jq -r 'to_entries[] | "  \(.key): \(.value)"'
+                echo
+
+                if ask_yes_no "Update this peer with new credentials?"; then
+                    # Add to updates JSON
+                    jq -s --arg addr "$addr" --argjson peer "$new_peer" \
+                        '.[0] + {($addr): $peer}' "$output_updates" > "$output_updates.tmp"
+                    mv "$output_updates.tmp" "$output_updates"
+                    print_success "Will update peer: $addr"
+                else
+                    print_info "Keeping existing configuration for: $addr"
+                fi
+            else
+                # Exact duplicate - skip silently
+                :
+            fi
+        else
+            # New peer - add to output
+            local peer_data=$(jq --arg addr "$addr" '.[$addr]' "$new_peers_file")
+            jq -s --arg addr "$addr" --argjson peer "$peer_data" \
+                '.[0] + {($addr): $peer}' "$output_new" > "$output_new.tmp"
+            mv "$output_new.tmp" "$output_new"
+        fi
+
+    done <<< "$new_addrs"
+
+    rm -f "$existing_peers"
+
+    # Return counts
+    local new_count=$(jq 'length' "$output_new")
+    local update_count=$(jq 'length' "$output_updates")
+    echo "$new_count|$update_count"
+}
+
+# Apply peer updates to config (for smart duplicate updates)
+apply_peer_updates() {
+    local config_file="$1"
+    local updates_json="$2"
+    local interface_index="$3"
+    local temp_config="$4"
+
+    cp "$config_file" "$temp_config"
+
+    local update_addrs=$(jq -r 'keys[]' "$updates_json" 2>/dev/null)
+
+    while IFS= read -r addr; do
+        [ -z "$addr" ] && continue
+
+        local peer_data=$(jq --arg addr "$addr" '.[$addr]' "$updates_json")
+
+        # Update the peer in config
+        jq --arg addr "$addr" --argjson peer "$peer_data" --argjson idx "$interface_index" \
+            '.interfaces.UDPInterface[$idx].connectTo[$addr] = $peer' \
+            "$temp_config" > "$temp_config.tmp"
+        mv "$temp_config.tmp" "$temp_config"
+
+    done <<< "$update_addrs"
+
+    return 0
+}
