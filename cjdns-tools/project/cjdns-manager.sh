@@ -85,9 +85,6 @@ initialize() {
     local cjdnstool_version
     if cjdnstool_version=$(check_cjdnstool); then
         print_success "cjdnstool found: $cjdnstool_version"
-        if [ "$cjdnstool_version" != "0.1.0" ]; then
-            print_warning "This tool has been tested with cjdnstool 0.1.0. Your version may work differently."
-        fi
     else
         print_error "cjdnstool not found"
         echo
@@ -206,17 +203,32 @@ initialize() {
     fi
 
     if init_master_list; then
-        print_success "Master peer list initialized"
+        print_success "Locally stored address list downloaded and initialized"
     else
-        print_error "Failed to initialize master peer list"
+        print_error "Failed to initialize locally stored address list"
         exit 1
     fi
 
-    # Show current stats
+    # Show current stats from locally stored address list
     local counts=$(get_master_counts)
-    local ipv4_count=$(echo "$counts" | cut -d'|' -f1)
-    local ipv6_count=$(echo "$counts" | cut -d'|' -f2)
-    print_info "Master list: $ipv4_count IPv4 peers, $ipv6_count IPv6 peers"
+    local local_ipv4=$(echo "$counts" | cut -d'|' -f1)
+    local local_ipv6=$(echo "$counts" | cut -d'|' -f2)
+
+    if [ "$local_ipv4" -gt 0 ] || [ "$local_ipv6" -gt 0 ]; then
+        print_success "Locally stored address list contains: $local_ipv4 IPv4 addresses, and $local_ipv6 IPv6 addresses"
+    else
+        print_error "Locally stored address list contains: $local_ipv4 IPv4 addresses, and $local_ipv6 IPv6 addresses"
+    fi
+
+    # Show current config file peer counts
+    local config_ipv4=$(get_peer_count "$CJDNS_CONFIG" 0)
+    local config_ipv6=$(get_peer_count "$CJDNS_CONFIG" 1)
+
+    if [ "$config_ipv4" -gt 0 ] || [ "$config_ipv6" -gt 0 ]; then
+        print_success "CJDNS config file currently contains: $config_ipv4 IPv4 peers, and $config_ipv6 IPv6 peers"
+    else
+        print_error "CJDNS config file currently contains: $config_ipv4 IPv4 peers, and $config_ipv6 IPv6 peers"
+    fi
 
     # Create working directory
     WORK_DIR=$(mktemp -d -t cjdns-manager.XXXXXX)
