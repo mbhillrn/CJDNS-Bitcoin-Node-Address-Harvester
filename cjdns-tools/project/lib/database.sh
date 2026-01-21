@@ -87,16 +87,14 @@ CREATE TABLE IF NOT EXISTS peers (
     quality_score REAL DEFAULT 0
 );
 EOF
-        local result=$?
+    local result=$?
 
-        # Set proper permissions on database file
-        if [ $result -eq 0 ] && [ -f "$DB_FILE" ]; then
-            chmod 644 "$DB_FILE" 2>/dev/null
-        fi
-
-        return $result
+    # Set proper permissions on database file
+    if [ $result -eq 0 ] && [ -f "$DB_FILE" ]; then
+        chmod 644 "$DB_FILE" 2>/dev/null
     fi
-    return 0
+
+    return $result
 }
 
 # Update peer in database
