@@ -659,16 +659,23 @@ run_harvester_mode() {
     # Ask for run mode
     echo
     echo "Run mode:"
-    echo "  1) Once (single pass, then exit)"
+    echo "  1) Continuous w/ connect (loops with onetry confirmed list every 10th loop)"
     echo "  2) Continuous (loop)"
+    echo "  3) Once (single pass, then exit)"
+    echo "  0) Exit back to main menu"
     echo
     local run_mode
-    read -r -p "Choice [1/2]: " run_mode
+    read -r -p "Choice [1/2/3/0]: " run_mode
+
+    # Handle exit option
+    if [[ "$run_mode" == "0" ]]; then
+        return 0
+    fi
 
     local scan_interval=60
     local harvest_remote="no"
 
-    if [[ "$run_mode" == "2" ]]; then
+    if [[ "$run_mode" == "1" || "$run_mode" == "2" ]]; then
         # Ask for scan interval
         echo
         read -r -p "Seconds between scans [default: 60]: " scan_interval
@@ -750,6 +757,13 @@ run_harvester_mode() {
         # Onetry new addresses
         onetry_new_addresses
 
+        # For mode 1: onetry all confirmed addresses on first loop and every 10th loop
+        if [[ "$run_mode" == "1" ]] && (( loop_count == 1 || loop_count % 10 == 0 )); then
+            echo
+            log_info "Loop $loop_count: Running onetry on all confirmed addresses"
+            onetry_all_confirmed
+        fi
+
         # Show final database counts
         echo
         master_count="$(db_count_master)"
@@ -766,7 +780,7 @@ run_harvester_mode() {
         fi
 
         # Exit if run-once mode
-        if [[ "$run_mode" == "1" ]]; then
+        if [[ "$run_mode" == "3" ]]; then
             echo
             log_success "Single pass complete"
             echo
