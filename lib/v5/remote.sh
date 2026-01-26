@@ -5,6 +5,38 @@
 declare -g -a REMOTE_HOSTS=()
 declare -g -a REMOTE_USERS=()
 
+# File to remember remote hosts between runs
+REMOTE_HOSTS_FILE="/tmp/cjdns-harvester-hosts"
+
+# Arrays for saved hosts (loaded from file)
+declare -g -a SAVED_HOSTS=()
+declare -g -a SAVED_USERS=()
+
+# ============================================================================
+# Remote Host Persistence
+# ============================================================================
+load_saved_hosts() {
+    SAVED_HOSTS=()
+    SAVED_USERS=()
+    if [[ -f "$REMOTE_HOSTS_FILE" ]]; then
+        while IFS=: read -r host user; do
+            [[ -n "$host" && -n "$user" ]] || continue
+            SAVED_HOSTS+=("$host")
+            SAVED_USERS+=("$user")
+        done < "$REMOTE_HOSTS_FILE"
+    fi
+}
+
+save_remote_hosts() {
+    # Only save if we have hosts configured
+    if [[ "${#REMOTE_HOSTS[@]}" -gt 0 ]]; then
+        : > "$REMOTE_HOSTS_FILE"
+        for i in "${!REMOTE_HOSTS[@]}"; do
+            echo "${REMOTE_HOSTS[$i]}:${REMOTE_USERS[$i]}" >> "$REMOTE_HOSTS_FILE"
+        done
+    fi
+}
+
 # ============================================================================
 # SSH Connection Testing (Key-based only)
 # ============================================================================
@@ -53,21 +85,44 @@ test_ssh_keys() {
 configure_remote_hosts() {
     local host_num=1
 
+    # Load previously saved hosts
+    load_saved_hosts
+
     while true; do
         echo
         printf "${C_HEADER}Remote Host #%d${C_RESET}\n" "$host_num"
         echo
 
+        # Check if we have a saved default for this host number
+        local saved_idx=$((host_num - 1))
+        local default_host=""
+        local default_user=""
+        if [[ "$saved_idx" -lt "${#SAVED_HOSTS[@]}" ]]; then
+            default_host="${SAVED_HOSTS[$saved_idx]}"
+            default_user="${SAVED_USERS[$saved_idx]}"
+        fi
+
         # Get host address
         local host
         while true; do
-            read -r -p "Remote host address (IP or hostname) [empty to finish]: " host
+            if [[ -n "$default_host" ]]; then
+                read -r -p "Remote host address (IP or hostname) [empty to finish] (Enter for $default_host): " host
+            else
+                read -r -p "Remote host address (IP or hostname) [empty to finish]: " host
+            fi
             host="${host// /}"  # trim spaces
+
+            # Use default if empty and we have one
+            if [[ -z "$host" && -n "$default_host" ]]; then
+                host="$default_host"
+            fi
 
             if [[ -z "$host" ]]; then
                 if [[ "$host_num" -eq 1 ]]; then
                     status_info "No remote hosts configured"
                 fi
+                # Save whatever we have configured
+                save_remote_hosts
                 return 0
             fi
 
@@ -82,8 +137,18 @@ configure_remote_hosts() {
         # Get username
         local user
         while true; do
-            read -r -p "SSH username for $host: " user
+            if [[ -n "$default_user" ]]; then
+                read -r -p "SSH username for $host (Enter for $default_user): " user
+            else
+                read -r -p "SSH username for $host: " user
+            fi
             user="${user// /}"
+
+            # Use default if empty and we have one
+            if [[ -z "$user" && -n "$default_user" ]]; then
+                user="$default_user"
+            fi
+
             if [[ -n "$user" ]]; then
                 break
             else
@@ -142,7 +207,7 @@ configure_remote_hosts() {
         # Ask about adding another host
         local add_another
         while true; do
-            read -r -p "Add another remote host? [y/N]: " add_another
+            read -r -p "Add another remote host? [y/N] (default - N): " add_another
             add_another="${add_another,,}"
 
             if [[ "$add_another" == "y" || "$add_another" == "yes" ]]; then
@@ -157,6 +222,8 @@ configure_remote_hosts() {
                             "$((i + 1))" "${REMOTE_USERS[$i]}" "${REMOTE_HOSTS[$i]}"
                     done
                 fi
+                # Save the configured hosts
+                save_remote_hosts
                 return 0
             else
                 printf "${C_ERROR}Invalid response. Please answer 'y' or 'n'.${C_RESET}\n"

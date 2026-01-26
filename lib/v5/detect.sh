@@ -6,16 +6,35 @@
 # ============================================================================
 # Helper Functions
 # ============================================================================
+# Prompt yes/no with N as default (empty = no)
 prompt_yn() {
     local prompt="$1"
     local ans
     while true; do
-        read -r -p "$prompt [y/N]: " ans || true
+        read -r -p "$prompt [y/N] (default - N): " ans || true
         ans="${ans,,}"  # lowercase
 
         if [[ "$ans" == "y" || "$ans" == "yes" ]]; then
             return 0  # true
         elif [[ "$ans" == "n" || "$ans" == "no" || -z "$ans" ]]; then
+            return 1  # false
+        else
+            printf "${C_ERROR}Invalid response. Please answer 'y' or 'n'.${C_RESET}\n"
+        fi
+    done
+}
+
+# Prompt yes/no with Y as default (empty = yes)
+prompt_yn_yes() {
+    local prompt="$1"
+    local ans
+    while true; do
+        read -r -p "$prompt [Y/n] (default - Y): " ans || true
+        ans="${ans,,}"  # lowercase
+
+        if [[ "$ans" == "y" || "$ans" == "yes" || -z "$ans" ]]; then
+            return 0  # true
+        elif [[ "$ans" == "n" || "$ans" == "no" ]]; then
             return 1  # false
         else
             printf "${C_ERROR}Invalid response. Please answer 'y' or 'n'.${C_RESET}\n"
@@ -142,7 +161,7 @@ detect_and_confirm_bitcoin() {
         echo "  conf:        $cf"
         echo
 
-        if prompt_yn "Use these detected settings?"; then
+        if prompt_yn_yes "Use these detected settings?"; then
             BITCOIN_CLI_BIN="$bin"
             BITCOIN_DATADIR="$dd"
             BITCOIN_CONF="$cf"
@@ -243,7 +262,7 @@ detect_and_confirm_cjdns() {
         echo "  password:    (none assumed)"
         echo
 
-        if prompt_yn "Use these detected settings?"; then
+        if prompt_yn_yes "Use these detected settings?"; then
             CJDNS_ADMIN_ADDR="$addr"
             CJDNS_ADMIN_PORT="$port"
             status_ok "CJDNS configured"
