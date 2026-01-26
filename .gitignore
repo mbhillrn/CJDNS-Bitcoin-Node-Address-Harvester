@@ -1,6 +1,8 @@
 # machine-specific / generated config
 harvest.local.conf
 harvest.conf
+.db-multitool.conf
+state.db.multitool-backup
 
 # runtime / generated data
 tmp/

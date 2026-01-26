@@ -184,10 +184,36 @@ The harvester detects settings, and asks you a few questions on first run:
 
 ---
 
+## Database Multi-Tool
+
+The `db-multitool.sh` script is a standalone utility for merging databases from multiple machines.
+
+**Run it:**
+```bash
+./db-multitool.sh
+```
+
+**Features:**
+- Interactively collect remote machine credentials (IP, DB path, user, password)
+- Fetch remote `state.db` files via SSH/SCP
+- Automatically backup local database before merging
+- Analyze and show what's unique across all databases
+- Merge unique addresses into your local database
+- Optionally push the merged database back to all remote machines
+
+**Requirements:**
+- `sshpass` - for password-based SCP (`sudo apt-get install sshpass`)
+- `sqlite3` - for database operations
+
+This is useful if you're running the harvester on multiple machines and want to consolidate all discovered addresses into one master database.
+
+---
+
 ## Files
 
 ```
 harvest.v5.sh           # Main script (run this!)
+db-multitool.sh         # Database merge utility (standalone)
 state.db                # Your active database (auto-created, gitignored)
 lib/
   ├── seeddb.db        # Seed database with confirmed nodes (can be updated from main menu)
