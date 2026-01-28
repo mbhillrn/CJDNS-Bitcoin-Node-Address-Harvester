@@ -14,9 +14,9 @@
 
 This is a tool developed to make it easier to discover Bitcoin Core nodes running on CJDNS. It works by:
 
-1. Utilizing cjdnstools to scan local CJDNS NodeStore (and more!) for addresses.
-2. Testing each address to see if it's running Bitcoin Core
-3. Keeping track of everything in a local database
+1. Utilizing cjdnstools to scan local CJDNS NodeStore, ReachabilityCollector, RouterModule_getPeers (and more!), for addresses.
+2. Testing each address with addnode onetry to see if it's running Bitcoin Core
+3. Keeping track of everything in a local database, with the capability of maintaining connections or retrying later!
 
 This project focuses on practical discovery and tracking of Bitcoin nodes reachable over CJDNS networking. 
 
