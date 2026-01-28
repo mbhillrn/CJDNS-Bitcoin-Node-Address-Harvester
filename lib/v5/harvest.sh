@@ -420,7 +420,7 @@ harvest_frontier() {
     print_divider
     printf "${C_BOLD}Frontier Summary:${C_RESET}\n"
     local keys_count
-    keys_count="$(grep 'keys=' "$frontier_log" 2>/dev/null | sed -n 's/.*keys=\([0-9]\+\).*/\1/p' | head -n1)"
+    keys_count="$(grep 'keys=' "$frontier_log" 2>/dev/null | sed -n 's/.*keys=\([0-9]\+\).*/\1/p' | head -n1 || true)"
     [[ -z "$keys_count" ]] && keys_count="?"
     printf "  Peer keys found:  %s\n" "$keys_count"
     printf "  Valid addresses:  %s\n" "$total"

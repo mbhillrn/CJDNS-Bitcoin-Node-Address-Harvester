@@ -226,7 +226,7 @@ detect_cjdns_admin() {
     for conf in /etc/cjdroute.conf ~/.cjdroute.conf /etc/cjdroute*.conf; do
         [[ -f "$conf" ]] || continue
         local cport
-        cport="$(grep -A1 '"admin"' "$conf" 2>/dev/null | grep '"bind"' | sed -n 's/.*:\([0-9]\+\)".*/\1/p' | head -n1)"
+        cport="$(grep -A1 '"admin"' "$conf" 2>/dev/null | grep '"bind"' | sed -n 's/.*:\([0-9]\+\)".*/\1/p' | head -n1 || true)"
         if [[ -n "$cport" ]] && verify_cjdns_admin "$addr" "$cport"; then
             printf '%s|%s\n' "$addr" "$cport"
             return 0

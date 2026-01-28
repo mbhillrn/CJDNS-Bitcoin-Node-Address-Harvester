@@ -4,6 +4,9 @@
 
 set -euo pipefail
 
+# Error trap - show useful info when script crashes
+trap 'echo -e "\n\033[1;31m✗ ERROR:\033[0m Script crashed at line $LINENO in ${FUNCNAME[0]:-main}" >&2; echo -e "  Command: $BASH_COMMAND" >&2; echo -e "  Exit code: $?" >&2' ERR
+
 # ============================================================================
 # Environment Setup
 # ============================================================================
